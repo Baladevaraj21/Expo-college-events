@@ -35,7 +35,7 @@ router.put(
     "/profile",
     authenticate,
     authorize("student"),
-    upload.fields([{ name: "idCardFront", maxCount: 1 }, { name: "idCardBack", maxCount: 1 }]),
+    upload.fields([{ name: "idCardFront", maxCount: 1 }, { name: "idCardBack", maxCount: 1 }, { name: "profilePic", maxCount: 1 }]),
     async (req, res) => {
         try {
             const { college, department, year, place, age, gender, collegeAddress, mobile } = req.body;
@@ -44,6 +44,7 @@ router.put(
             if (req.files) {
                 if (req.files.idCardFront) updateFields.idCardFront = req.files.idCardFront[0].path;
                 if (req.files.idCardBack) updateFields.idCardBack = req.files.idCardBack[0].path;
+                if (req.files.profilePic) updateFields.profilePic = req.files.profilePic[0].path;
             }
 
             const user = await User.findByIdAndUpdate(
@@ -95,14 +96,55 @@ router.get("/events", authenticate, authorize("student"), async (req, res) => {
     }
 });
 
+// @route   GET /api/student/events-by-category/:category
+// @desc    Get events by category, grouped by college
+router.get("/events-by-category/:category", authenticate, authorize("student"), async (req, res) => {
+    try {
+        const { category } = req.params;
+        const events = await Event.find({ category })
+            .populate("organizer", "name")
+            .sort({ startDate: 1 });
+
+        // Group events by college name
+        const collegeMap = {};
+        events.forEach(event => {
+            const collegeName = event.collegeName || event.organizer?.name || "Unknown College";
+            if (!collegeMap[collegeName]) {
+                collegeMap[collegeName] = [];
+            }
+            collegeMap[collegeName].push(event);
+        });
+
+        const result = Object.entries(collegeMap).map(([collegeName, events]) => ({
+            collegeName,
+            eventCount: events.length,
+            events
+        }));
+
+        res.json(result);
+    } catch (err) {
+        console.error(err);
+        res.status(500).send("Server Error");
+    }
+});
+
 // @route   POST /api/student/applications
 // @desc    Apply to event
 router.post("/applications", authenticate, authorize("student"), async (req, res) => {
     try {
-        const { eventId } = req.body;
+        const { eventId, studentDetails } = req.body;
 
         let existing = await Application.findOne({ event: eventId, student: req.user.id });
         if (existing) return res.status(400).json({ message: "Already applied" });
+
+        // Update student profile if details are provided
+        if (studentDetails) {
+            await User.findByIdAndUpdate(
+                req.user.id,
+                { $set: studentDetails },
+                { new: true }
+            );
+        }
 
         const application = new Application({
             event: eventId,
@@ -112,6 +154,74 @@ router.post("/applications", authenticate, authorize("student"), async (req, res
         await application.save();
 
         res.json(application);
+    } catch (err) {
+        res.status(500).send("Server Error");
+    }
+});
+
+// @route   POST /api/student/feedback
+// @desc    Submit feedback for a finished event
+router.post("/feedback", authenticate, authorize("student"), async (req, res) => {
+    try {
+        const { eventId, rating, comment } = req.body;
+
+        // Check event exists and has ended
+        const event = await Event.findById(eventId);
+        if (!event) return res.status(404).json({ message: "Event not found" });
+
+        const now = new Date();
+        const eventEndDate = new Date(event.endDate);
+        if (now < eventEndDate) {
+            return res.status(400).json({ message: "Feedback can only be submitted after the event has ended" });
+        }
+
+        // Check student applied to this event
+        const application = await Application.findOne({ event: eventId, student: req.user.id });
+        if (!application) {
+            return res.status(400).json({ message: "You can only give feedback for events you applied to" });
+        }
+
+        // Check if already submitted feedback
+        const Feedback = require("../models/Feedback");
+        const existing = await Feedback.findOne({ event: eventId, student: req.user.id });
+        if (existing) return res.status(400).json({ message: "You have already submitted feedback for this event" });
+
+        const feedback = new Feedback({
+            student: req.user.id,
+            event: eventId,
+            rating,
+            comment
+        });
+        await feedback.save();
+        res.json(feedback);
+    } catch (err) {
+        console.error(err);
+        res.status(500).send("Server Error");
+    }
+});
+
+// @route   GET /api/student/feedback/:eventId
+// @desc    Get feedbacks for an event
+router.get("/feedback/:eventId", authenticate, authorize("student"), async (req, res) => {
+    try {
+        const Feedback = require("../models/Feedback");
+        const feedbacks = await Feedback.find({ event: req.params.eventId })
+            .populate("student", "name college")
+            .sort({ createdAt: -1 });
+        res.json(feedbacks);
+    } catch (err) {
+        res.status(500).send("Server Error");
+    }
+});
+
+// @route   GET /api/student/my-applications
+// @desc    Get student's own applications with event details
+router.get("/my-applications", authenticate, authorize("student"), async (req, res) => {
+    try {
+        const applications = await Application.find({ student: req.user.id })
+            .populate("event")
+            .sort({ createdAt: -1 });
+        res.json(applications);
     } catch (err) {
         res.status(500).send("Server Error");
     }

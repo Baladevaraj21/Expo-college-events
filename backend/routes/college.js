@@ -1,8 +1,24 @@
+const mongoose = require("mongoose");
 const express = require("express");
 const router = express.Router();
+const multer = require("multer");
+const path = require("path");
 const { authenticate, authorize } = require("../middleware/auth");
 const Event = require("../models/Event");
 const Application = require("../models/Application");
+const User = require("../models/User");
+
+// Multer Config
+const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        cb(null, "uploads/");
+    },
+    filename: function (req, file, cb) {
+        cb(null, req.user.id + "-qr-" + Date.now() + path.extname(file.originalname));
+    },
+});
+const upload = multer({ storage });
+
 
 // Context: All routes are protected and require "college" role
 router.use(authenticate, authorize("college"));
@@ -20,12 +36,20 @@ router.get("/events", async (req, res) => {
 
 // @route   POST /api/college/events
 // @desc    Create new event
-router.post("/events", async (req, res) => {
+router.post("/events", upload.single("qrCode"), async (req, res) => {
     try {
-        const newEvent = new Event({
+        const user = await User.findById(req.user.id);
+        const eventData = {
             ...req.body,
-            organizer: req.user.id
-        });
+            organizer: req.user.id,
+            collegeName: user.name
+        };
+
+        if (req.file) {
+            eventData.qrCode = req.file.path.replace(/\\/g, "/"); // normalize path separators
+        }
+
+        const newEvent = new Event(eventData);
         await newEvent.save();
         res.json(newEvent);
     } catch (err) {
@@ -42,8 +66,8 @@ router.get("/applications", async (req, res) => {
         const eventIds = events.map(e => e._id);
 
         const applications = await Application.find({ event: { $in: eventIds } })
-            .populate("student", "name email college idCardFront idCardBack")
-            .populate("event", "title type")
+            .populate("student", "name email college department year mobile place age gender collegeAddress profilePic idCardFront idCardBack")
+            .populate("event", "title type category")
             .sort({ createdAt: -1 });
 
         res.json(applications);
@@ -67,5 +91,48 @@ router.patch("/applications/:id", async (req, res) => {
         res.status(500).send("Server Error");
     }
 });
+
+// @route   GET /api/college/profile
+// @desc    Get college profile
+router.get("/profile", async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id).select("-password");
+        res.json(user);
+    } catch (err) {
+        res.status(500).send("Server Error");
+    }
+});
+
+// @route   PUT /api/college/profile
+// @desc    Update college profile (name, address, mobile, profilePic)
+router.put(
+    "/profile",
+    upload.single("profilePic"),
+    async (req, res) => {
+        try {
+            const { name, collegeAddress, mobile } = req.body;
+            const updateFields = {};
+
+            if (name !== undefined) updateFields.name = name;
+            if (collegeAddress !== undefined) updateFields.collegeAddress = collegeAddress;
+            if (mobile !== undefined) updateFields.mobile = mobile;
+
+            if (req.file) {
+                updateFields.profilePic = req.file.path.replace(/\\/g, "/");
+            }
+
+            const user = await User.findByIdAndUpdate(
+                req.user.id,
+                { $set: updateFields },
+                { new: true }
+            ).select("-password");
+
+            res.json(user);
+        } catch (err) {
+            console.error(err);
+            res.status(500).send("Server Error");
+        }
+    }
+);
 
 module.exports = router;

@@ -7,6 +7,8 @@ export default function StudentProfile() {
     const { token, user } = useAuth();
     const [profile, setProfile] = useState({ college: '', department: '', year: '', place: '', age: '', gender: '', collegeAddress: '', mobile: '' });
     const [certificates, setCertificates] = useState([]);
+    const [profilePicFile, setProfilePicFile] = useState(null);
+    const [profilePicUrl, setProfilePicUrl] = useState('');
     const [frontImage, setFrontImage] = useState(null);
     const [backImage, setBackImage] = useState(null);
     const [loading, setLoading] = useState(false);
@@ -28,6 +30,7 @@ export default function StudentProfile() {
                     collegeAddress: res.data.collegeAddress || '',
                     mobile: res.data.mobile || ''
                 });
+                setProfilePicUrl(res.data.profilePic || '');
                 setCertificates(res.data.certificates || []);
             } catch (err) {
                 console.error("Failed to fetch profile");
@@ -46,6 +49,7 @@ export default function StudentProfile() {
             formData.append(key, profile[key]);
         });
 
+        if (profilePicFile) formData.append('profilePic', profilePicFile);
         if (frontImage) formData.append('idCardFront', frontImage);
         if (backImage) formData.append('idCardBack', backImage);
 
@@ -115,6 +119,22 @@ export default function StudentProfile() {
             {message && <div style={{ padding: '1rem', background: 'rgba(16, 185, 129, 0.1)', color: 'var(--success)', marginBottom: '2rem', borderRadius: '0.5rem' }}>{message}</div>}
 
             <form onSubmit={handleSubmit} className="glass-card" style={{ padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', marginBottom: '2rem' }}>
+
+                {/* Profile Picture Section */}
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '1rem' }}>
+                    <div style={{ position: 'relative', width: '120px', height: '120px', borderRadius: '50%', overflow: 'hidden', border: '3px solid var(--accent-primary)', cursor: 'pointer', background: 'var(--bg-tertiary)' }}>
+                        <img
+                            src={profilePicFile ? URL.createObjectURL(profilePicFile) : (profilePicUrl ? `http://localhost:5000/${profilePicUrl}` : 'https://via.placeholder.com/120?text=Upload')}
+                            alt="Profile"
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        />
+                        <label style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'rgba(0,0,0,0.5)', color: 'white', textAlign: 'center', padding: '0.25rem 0', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600 }}>
+                            Change
+                            <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => setProfilePicFile(e.target.files[0])} />
+                        </label>
+                    </div>
+                </div>
+
                 <h3 className="outfit-font" style={{ fontSize: '1.5rem', color: 'var(--accent-primary)', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>Personal Information</h3>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
                     <div className="input-group">

@@ -8,6 +8,7 @@ import StudentDashboard from './pages/StudentDashboard';
 import StudentProfile from './pages/StudentProfile';
 import StudentApplications from './pages/StudentApplications';
 import CollegeDashboard from './pages/CollegeDashboard';
+import CollegeProfile from './pages/CollegeProfile';
 
 const PrivateRoute = ({ children, roles }) => {
   const { user, isAuthenticated } = useAuth();
@@ -24,6 +25,7 @@ function AppRoutes() {
   const { isAuthenticated, user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [showFilter, setShowFilter] = useState(false);
+  const [notifEvent, setNotifEvent] = useState(null);
 
   return (
     <>
@@ -31,6 +33,7 @@ function AppRoutes() {
         <Header
           onSearch={setSearchQuery}
           onFilterToggle={() => setShowFilter(!showFilter)}
+          onSelectNotifEvent={setNotifEvent}
         />
       )}
 
@@ -39,11 +42,12 @@ function AppRoutes() {
         <Route path="/login" element={!isAuthenticated ? <Login /> : <Navigate to={user.role === 'college' ? '/college-dashboard' : '/student-dashboard'} replace />} />
         <Route path="/register" element={!isAuthenticated ? <Register /> : <Navigate to={user.role === 'college' ? '/college-dashboard' : '/student-dashboard'} replace />} />
 
-        <Route path="/student-dashboard" element={<PrivateRoute roles={['student']}><StudentDashboard searchQuery={searchQuery} showFilter={showFilter} /></PrivateRoute>} />
+        <Route path="/student-dashboard" element={<PrivateRoute roles={['student']}><StudentDashboard searchQuery={searchQuery} showFilter={showFilter} notifEvent={notifEvent} clearNotifEvent={() => setNotifEvent(null)} /></PrivateRoute>} />
         <Route path="/student-profile" element={<PrivateRoute roles={['student']}><StudentProfile /></PrivateRoute>} />
         <Route path="/student-applications" element={<PrivateRoute roles={['student']}><StudentApplications /></PrivateRoute>} />
 
         <Route path="/college-dashboard" element={<PrivateRoute roles={['college']}><CollegeDashboard /></PrivateRoute>} />
+        <Route path="/college-profile" element={<PrivateRoute roles={['college']}><CollegeProfile /></PrivateRoute>} />
       </Routes>
     </>
   );
