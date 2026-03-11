@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
-import { User, Lock, Mail, ArrowRight, Image as ImageIcon } from 'lucide-react';
+import { User, Lock, Mail, ArrowRight, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export default function Register() {
     const [formData, setFormData] = useState({ name: '', email: '', password: '', role: 'student' });
+    const [step, setStep] = useState(1);
+    const [otp, setOtp] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
@@ -16,12 +18,19 @@ export default function Register() {
         setLoading(true);
         setError('');
         try {
-            const res = await axios.post('http://localhost:5000/api/auth/register', formData);
-            login(res.data.token, res.data.user);
-            if (res.data.user.role === 'college') {
-                navigate('/college-dashboard');
+            if (step === 1) {
+                const res = await axios.post('http://localhost:5000/api/auth/register', formData);
+                if (res.data.requireOtp) {
+                    setStep(2);
+                }
             } else {
-                navigate('/student-dashboard');
+                const res = await axios.post('http://localhost:5000/api/auth/verify-otp', { identifier: formData.email, otp });
+                login(res.data.token, res.data.user);
+                if (res.data.user.role === 'college') {
+                    navigate('/college-dashboard');
+                } else {
+                    navigate('/student-dashboard');
+                }
             }
         } catch (err) {
             setError(err.response?.data?.message || 'Registration failed');
@@ -41,32 +50,54 @@ export default function Register() {
 
                 <form onSubmit={handleRegister} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                        <button type="button" onClick={() => setFormData({ ...formData, role: 'student' })} style={{ padding: '1rem', borderRadius: '0.5rem', border: formData.role === 'student' ? '2px solid var(--accent-primary)' : '1px solid var(--border-color)', background: formData.role === 'student' ? 'rgba(79, 70, 229, 0.05)' : 'var(--bg-primary)', color: 'var(--text-primary)', fontWeight: 600, transition: 'all 0.2s' }}>
-                            👩‍🎓 Student
-                        </button>
-                        <button type="button" onClick={() => setFormData({ ...formData, role: 'college' })} style={{ padding: '1rem', borderRadius: '0.5rem', border: formData.role === 'college' ? '2px solid var(--accent-primary)' : '1px solid var(--border-color)', background: formData.role === 'college' ? 'rgba(79, 70, 229, 0.05)' : 'var(--bg-primary)', color: 'var(--text-primary)', fontWeight: 600, transition: 'all 0.2s' }}>
-                            🏛️ College Admin
-                        </button>
-                    </div>
+                    {step === 1 ? (
+                        <>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                                <button type="button" onClick={() => setFormData({ ...formData, role: 'student' })} style={{ padding: '1rem', borderRadius: '0.5rem', border: formData.role === 'student' ? '2px solid var(--accent-primary)' : '1px solid var(--border-color)', background: formData.role === 'student' ? 'rgba(79, 70, 229, 0.05)' : 'var(--bg-primary)', color: 'var(--text-primary)', fontWeight: 600, transition: 'all 0.2s' }}>
+                                    👩‍🎓 Student
+                                </button>
+                                <button type="button" onClick={() => setFormData({ ...formData, role: 'college' })} style={{ padding: '1rem', borderRadius: '0.5rem', border: formData.role === 'college' ? '2px solid var(--accent-primary)' : '1px solid var(--border-color)', background: formData.role === 'college' ? 'rgba(79, 70, 229, 0.05)' : 'var(--bg-primary)', color: 'var(--text-primary)', fontWeight: 600, transition: 'all 0.2s' }}>
+                                    🏛️ College Admin
+                                </button>
+                            </div>
 
-                    <div style={{ position: 'relative' }}>
-                        <User size={20} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }} />
-                        <input type="text" required value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} style={{ width: '100%', padding: '0.875rem 1rem 0.875rem 3rem', borderRadius: '0.5rem', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-primary)', outline: 'none' }} placeholder={formData.role === 'student' ? "Your Full Name" : "College/Organization Name"} />
-                    </div>
+                            <div style={{ position: 'relative' }}>
+                                <User size={20} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }} />
+                                <input type="text" required value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} style={{ width: '100%', padding: '0.875rem 1rem 0.875rem 3rem', borderRadius: '0.5rem', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-primary)', outline: 'none' }} placeholder={formData.role === 'student' ? "Your Full Name" : "College/Organization Name"} />
+                            </div>
 
-                    <div style={{ position: 'relative' }}>
-                        <Mail size={20} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }} />
-                        <input type="email" required value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} style={{ width: '100%', padding: '0.875rem 1rem 0.875rem 3rem', borderRadius: '0.5rem', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-primary)', outline: 'none' }} placeholder="Email Address" />
-                    </div>
+                            <div style={{ position: 'relative' }}>
+                                <Mail size={20} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }} />
+                                <input type="email" required value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} style={{ width: '100%', padding: '0.875rem 1rem 0.875rem 3rem', borderRadius: '0.5rem', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-primary)', outline: 'none' }} placeholder="Email Address" />
+                            </div>
 
-                    <div style={{ position: 'relative' }}>
-                        <Lock size={20} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }} />
-                        <input type="password" required value={formData.password} onChange={e => setFormData({ ...formData, password: e.target.value })} style={{ width: '100%', padding: '0.875rem 1rem 0.875rem 3rem', borderRadius: '0.5rem', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-primary)', outline: 'none' }} placeholder="Password (min 6 chars)" minLength="6" />
-                    </div>
+                            <div style={{ position: 'relative' }}>
+                                <Lock size={20} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }} />
+                                <input type="password" required value={formData.password} onChange={e => setFormData({ ...formData, password: e.target.value })} style={{ width: '100%', padding: '0.875rem 1rem 0.875rem 3rem', borderRadius: '0.5rem', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-primary)', outline: 'none' }} placeholder="Password (min 6 chars)" minLength="6" />
+                            </div>
+                        </>
+                    ) : (
+                        <div style={{ position: 'relative' }}>
+                            <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>Enter 6-digit OTP</label>
+                            <div style={{ position: 'relative' }}>
+                                <ShieldCheck size={20} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }} />
+                                <input
+                                    type="text"
+                                    required
+                                    value={otp}
+                                    onChange={e => setOtp(e.target.value)}
+                                    style={{ width: '100%', padding: '0.875rem 1rem 0.875rem 3rem', borderRadius: '0.5rem', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-primary)', outline: 'none', transition: 'all 0.2s', letterSpacing: '0.5rem', textAlign: 'center' }}
+                                    placeholder="000000"
+                                    maxLength={6}
+                                />
+                            </div>
+                            <p style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', marginTop: '0.5rem' }}>An OTP has been sent to {formData.email}. Please check your inbox.</p>
+                            <button type="button" onClick={() => { setStep(1); setOtp(''); }} style={{ background: 'none', border: 'none', color: 'var(--accent-primary)', fontSize: '0.8rem', marginTop: '1rem', cursor: 'pointer', textDecoration: 'underline' }}>Back to edit details</button>
+                        </div>
+                    )}
 
                     <button type="submit" disabled={loading} className="btn btn-primary" style={{ width: '100%', padding: '1rem', fontSize: '1rem', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem' }}>
-                        {loading ? 'Registering...' : 'Create Account'} <ArrowRight size={20} />
+                        {loading ? 'Processing...' : (step === 1 ? 'Create Account' : 'Verify & Complete')} <ArrowRight size={20} />
                     </button>
                 </form>
 

@@ -153,6 +153,24 @@ router.post("/applications", authenticate, authorize("student"), async (req, res
         });
         await application.save();
 
+        // Send confirmation email
+        try {
+            const user = await User.findById(req.user.id);
+            const event = await Event.findById(eventId).populate('organizer', 'name');
+            const collegeName = event.collegeName || event.organizer?.name || "the college";
+            const sendEmail = require("../utils/sendEmail");
+
+            await sendEmail({
+                to: user.email,
+                subject: `Application Confirmation - ${event.title}`,
+                text: `Dear ${user.name},\n\nYou have successfully applied for the event "${event.title}" organized by ${collegeName}.\n\nDate: ${new Date(event.startDate).toLocaleDateString()}\nLocation: ${event.address}\n\nGood luck!`,
+                html: `<p>Dear <strong>${user.name}</strong>,</p><p>You have successfully applied for the event <strong>"${event.title}"</strong> organized by ${collegeName}.</p><p><strong>Date:</strong> ${new Date(event.startDate).toLocaleDateString()}<br><strong>Location:</strong> ${event.address}</p><p>Good luck!</p>`
+            });
+        } catch (emailErr) {
+            console.error("Error sending application confirmation email:", emailErr);
+            // Don't fail the application request if email fails
+        }
+
         res.json(application);
     } catch (err) {
         res.status(500).send("Server Error");

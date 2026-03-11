@@ -171,8 +171,8 @@ export default function CollegeDashboard() {
                             <textarea className="input-field" rows="3" placeholder="e.g. Route 1: Campus → Railway Station (8AM, 9AM)&#10;Route 2: Campus → Bus Stand (8:30AM)" value={newEvent.collegeBusRoutes} onChange={e => setNewEvent({ ...newEvent, collegeBusRoutes: e.target.value })}></textarea>
                         </div>
                         <div className="input-group">
-                            <label className="input-label" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><Bus size={16} /> Local Bus Routes (Near College)</label>
-                            <textarea className="input-field" rows="3" placeholder="e.g. Bus 45A: Central Station → College Stop (every 30 min)&#10;Bus 12B: Airport → College Area" value={newEvent.localBusRoutes} onChange={e => setNewEvent({ ...newEvent, localBusRoutes: e.target.value })}></textarea>
+                            <label className="input-label" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><Bus size={16} /> Local Bus Routes (Bus Stop Names)</label>
+                            <textarea className="input-field" rows="3" placeholder="e.g. Central Station, Anna Nagar Stop, Airport Roundabout" value={newEvent.localBusRoutes} onChange={e => setNewEvent({ ...newEvent, localBusRoutes: e.target.value })}></textarea>
                         </div>
                     </div>
                     <button type="submit" disabled={creating} className="btn btn-primary" style={{ alignSelf: 'flex-start', padding: '1rem 2rem' }}>
@@ -213,25 +213,6 @@ export default function CollegeDashboard() {
                 </div>
             </div>
 
-            {/* Event Category Icons */}
-            <div className="animate-fade-in animate-delay-2" style={{ marginBottom: '3rem' }}>
-                <h2 className="outfit-font" style={{ fontSize: '1.75rem', marginBottom: '1.5rem' }}>Active Event Categories</h2>
-                <div className="category-icon-grid">
-                    {Object.entries(CATEGORY_ICONS).map(([key, { icon: IconComp, color, label }], index) => {
-                        const count = activeEvents.filter(e => e.category === key).length;
-                        return (
-                            <div key={key} className={`category-icon-card glass-card`} style={{ textAlign: 'center', padding: '1.5rem', cursor: 'default' }}>
-                                <div className="category-icon-circle" style={{ background: `${color}15`, borderColor: color }}>
-                                    <IconComp size={28} style={{ color }} />
-                                </div>
-                                <p style={{ fontWeight: 600, marginTop: '0.75rem', fontSize: '0.95rem' }}>{label}</p>
-                                <p style={{ color: 'var(--text-tertiary)', fontSize: '0.8rem' }}>{count} event{count !== 1 ? 's' : ''}</p>
-                            </div>
-                        );
-                    })}
-                </div>
-            </div>
-
             {/* My Posted Events */}
             <div style={{ marginBottom: '3rem' }}>
                 <h2 className="outfit-font" style={{ fontSize: '1.75rem', marginBottom: '1.5rem' }}>Ongoing Events</h2>
@@ -259,10 +240,10 @@ export default function CollegeDashboard() {
                                     {(event.collegeBusRoutes || event.localBusRoutes) && (
                                         <div style={{ marginTop: '0.75rem', padding: '0.75rem', background: 'var(--bg-tertiary)', borderRadius: '0.5rem', fontSize: '0.8rem' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontWeight: 600, color: 'var(--accent-primary)', marginBottom: '0.35rem' }}>
-                                                <Bus size={14} /> Bus Routes
+                                                <Bus size={14} /> Local Bus Routes
                                             </div>
-                                            {event.collegeBusRoutes && <p style={{ color: 'var(--text-secondary)', whiteSpace: 'pre-line', marginBottom: '0.25rem' }}><strong>College:</strong> {event.collegeBusRoutes}</p>}
-                                            {event.localBusRoutes && <p style={{ color: 'var(--text-secondary)', whiteSpace: 'pre-line' }}><strong>Local:</strong> {event.localBusRoutes}</p>}
+                                            {event.collegeBusRoutes && <p style={{ color: 'var(--text-secondary)', whiteSpace: 'pre-line', marginBottom: '0.25rem' }}><strong>College Bus:</strong> {event.collegeBusRoutes}</p>}
+                                            {event.localBusRoutes && <p style={{ color: 'var(--text-secondary)', whiteSpace: 'pre-line' }}><strong>Local Bus Stops:</strong> {event.localBusRoutes}</p>}
                                         </div>
                                     )}
                                     <div style={{ marginTop: '1.25rem', display: 'flex', gap: '0.75rem' }}>

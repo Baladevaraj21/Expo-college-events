@@ -4,7 +4,7 @@ import { Search, ArrowLeft, Settings, Bell, User as UserIcon, Menu, Filter, Moon
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 
-export default function Header({ onSearch, onFilterToggle, onSelectNotifEvent }) {
+export default function Header({ onSearch, onSelectNotifEvent }) {
     const { user, token, logout } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
@@ -76,7 +76,17 @@ export default function Header({ onSearch, onFilterToggle, onSelectNotifEvent })
 
         // Mark as read when opened
         setHasNewNotifications(false);
-        localStorage.setItem(`lastViewedNotif_${user._id}`, new Date().toISOString());
+
+        let lastReadDate = new Date().toISOString();
+        if (notifications.length > 0) {
+            const newest = notifications.reduce((max, n) => {
+                const nDate = new Date(n.createdAt);
+                const mDate = new Date(max);
+                return nDate > mDate ? n.createdAt : max;
+            }, notifications[0].createdAt);
+            lastReadDate = newest;
+        }
+        localStorage.setItem(`lastViewedNotif_${user._id}`, lastReadDate);
 
         const fetchNotifications = async () => {
             try {
@@ -123,11 +133,6 @@ export default function Header({ onSearch, onFilterToggle, onSelectNotifEvent })
                             onChange={(e) => onSearch && onSearch(e.target.value)}
                         />
                     </div>
-                    {user?.role === 'student' && location.pathname === '/student-dashboard' && (
-                        <button onClick={onFilterToggle} className="btn btn-outline" style={{ height: '40px', padding: '0 0.75rem' }}>
-                            <Filter size={18} />
-                        </button>
-                    )}
                 </div>
             )}
 
@@ -176,7 +181,15 @@ export default function Header({ onSearch, onFilterToggle, onSelectNotifEvent })
                     )}
                 </div>
 
-                <button style={{ color: 'var(--text-secondary)' }} onClick={() => navigate(user.role === 'college' ? '/college-profile' : '/student-profile')}><UserIcon size={20} /></button>
+                <button style={{ color: 'var(--text-secondary)' }} onClick={() => navigate(user.role === 'college' ? '/college-profile' : '/student-profile')}>
+                    {user.profilePic ? (
+                        <div style={{ width: '28px', height: '28px', borderRadius: '50%', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <img src={`http://localhost:5000/${user.profilePic}`} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        </div>
+                    ) : (
+                        <UserIcon size={20} />
+                    )}
+                </button>
 
                 {/* Settings Dropdown */}
                 <div style={{ position: 'relative' }}>
@@ -224,10 +237,19 @@ export default function Header({ onSearch, onFilterToggle, onSelectNotifEvent })
                         <Menu size={24} />
                     </button>
                     {showMenu && (
-                        <div className="glass-card" style={{ position: 'absolute', right: 0, top: '40px', padding: '0.5rem', minWidth: '150px', display: 'flex', flexDirection: 'column', gap: '0.5rem', zIndex: 101 }}>
-                            <div style={{ padding: '0.5rem', borderBottom: '1px solid var(--border-color)', fontSize: '0.875rem' }}>
-                                <b>{user.name}</b><br />
-                                <span style={{ color: 'var(--text-secondary)' }}>{user.role}</span>
+                        <div className="glass-card" style={{ position: 'absolute', right: 0, top: '40px', padding: '0.5rem', minWidth: '180px', display: 'flex', flexDirection: 'column', gap: '0.5rem', zIndex: 101 }}>
+                            <div style={{ padding: '0.5rem', borderBottom: '1px solid var(--border-color)', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                {user.profilePic ? (
+                                    <div style={{ width: '32px', height: '32px', borderRadius: '50%', overflow: 'hidden', flexShrink: 0 }}>
+                                        <img src={`http://localhost:5000/${user.profilePic}`} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    </div>
+                                ) : (
+                                    <UserCircle size={32} style={{ color: 'var(--text-secondary)' }} />
+                                )}
+                                <div>
+                                    <b>{user.name}</b><br />
+                                    <span style={{ color: 'var(--text-secondary)', textTransform: 'capitalize' }}>{user.role}</span>
+                                </div>
                             </div>
                             <button onClick={() => { setShowMenu(false); navigate(user.role === 'college' ? '/college-profile' : '/student-profile'); }} style={{ textAlign: 'left', padding: '0.5rem', fontSize: '0.875rem', width: '100%', color: 'var(--text-primary)' }}>Profile</button>
                             <button onClick={() => { setShowMenu(false); logout(); }} style={{ textAlign: 'left', padding: '0.5rem', fontSize: '0.875rem', color: 'var(--error)', width: '100%' }}>Logout</button>

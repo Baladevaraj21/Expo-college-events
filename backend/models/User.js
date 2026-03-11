@@ -8,6 +8,11 @@ const UserSchema = new mongoose.Schema(
         role: { type: String, enum: ["college", "student"], default: "student" },
         profilePic: { type: String }, // NEW
 
+        // OTP fields for login/registration verification
+        otp: { type: String },
+        otpExpires: { type: Date },
+        isVerified: { type: Boolean, default: true },
+
         // Student specific fields
         college: { type: String },
         department: { type: String },

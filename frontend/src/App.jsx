@@ -25,7 +25,7 @@ const PrivateRoute = ({ children, roles }) => {
 function AppRoutes() {
   const { isAuthenticated, user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
-  const [showFilter, setShowFilter] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState('all');
   const [notifEvent, setNotifEvent] = useState(null);
 
   return (
@@ -33,7 +33,7 @@ function AppRoutes() {
       {isAuthenticated && (
         <Header
           onSearch={setSearchQuery}
-          onFilterToggle={() => setShowFilter(!showFilter)}
+          onCategoryChange={setSelectedCategory}
           onSelectNotifEvent={setNotifEvent}
         />
       )}
@@ -43,7 +43,7 @@ function AppRoutes() {
         <Route path="/login" element={!isAuthenticated ? <Login /> : <Navigate to={user.role === 'college' ? '/college-dashboard' : '/student-dashboard'} replace />} />
         <Route path="/register" element={!isAuthenticated ? <Register /> : <Navigate to={user.role === 'college' ? '/college-dashboard' : '/student-dashboard'} replace />} />
 
-        <Route path="/student-dashboard" element={<PrivateRoute roles={['student']}><StudentDashboard searchQuery={searchQuery} showFilter={showFilter} notifEvent={notifEvent} clearNotifEvent={() => setNotifEvent(null)} /></PrivateRoute>} />
+        <Route path="/student-dashboard" element={<PrivateRoute roles={['student']}><StudentDashboard searchQuery={searchQuery} selectedCategory={selectedCategory} notifEvent={notifEvent} clearNotifEvent={() => setNotifEvent(null)} /></PrivateRoute>} />
         <Route path="/student-profile" element={<PrivateRoute roles={['student']}><StudentProfile /></PrivateRoute>} />
         <Route path="/student-applications" element={<PrivateRoute roles={['student']}><StudentApplications /></PrivateRoute>} />
 

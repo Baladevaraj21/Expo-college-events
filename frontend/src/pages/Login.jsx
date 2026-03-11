@@ -5,7 +5,7 @@ import { User, Lock, ArrowRight, ShieldCheck, GraduationCap, Globe, Sparkles } f
 import { useAuth } from '../context/AuthContext';
 
 export default function Login() {
-    const [email, setEmail] = useState('');
+    const [identifier, setIdentifier] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
@@ -17,13 +17,10 @@ export default function Login() {
         setLoading(true);
         setError('');
         try {
-            const res = await axios.post('http://localhost:5000/api/auth/login', { email, password });
+            const res = await axios.post('http://localhost:5000/api/auth/login', { identifier, password });
             login(res.data.token, res.data.user);
-            if (res.data.user.role === 'college') {
-                navigate('/college-dashboard');
-            } else {
-                navigate('/student-dashboard');
-            }
+            if (res.data.user.role === 'college') navigate('/college-dashboard');
+            else navigate('/student-dashboard');
         } catch (err) {
             setError(err.response?.data?.message || 'Login failed');
         } finally {
@@ -98,16 +95,16 @@ export default function Login() {
 
                     <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                         <div style={{ position: 'relative' }}>
-                            <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>Email Address</label>
+                            <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>Email or Mobile Number</label>
                             <div style={{ position: 'relative' }}>
                                 <User size={20} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }} />
                                 <input
-                                    type="email"
+                                    type="text"
                                     required
-                                    value={email}
-                                    onChange={e => setEmail(e.target.value)}
+                                    value={identifier}
+                                    onChange={e => setIdentifier(e.target.value)}
                                     style={{ width: '100%', padding: '0.875rem 1rem 0.875rem 3rem', borderRadius: '0.5rem', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-primary)', outline: 'none', transition: 'all 0.2s' }}
-                                    placeholder="you@college.edu"
+                                    placeholder="you@college.edu or 9876543210"
                                 />
                             </div>
                         </div>

@@ -10,7 +10,7 @@ const CATEGORY_ICONS = {
     workshop: { icon: Wrench, color: '#10b981', bg: 'linear-gradient(135deg, #10b981 0%, #34d399 100%)', label: 'Workshop' },
 };
 
-export default function StudentDashboard({ searchQuery = '', showFilter = false, notifEvent = null, clearNotifEvent }) {
+export default function StudentDashboard({ searchQuery = '', notifEvent = null, clearNotifEvent }) {
     const { token } = useAuth();
     const [events, setEvents] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -18,13 +18,10 @@ export default function StudentDashboard({ searchQuery = '', showFilter = false,
 
     // Filter & Category
     const [selectedCategory, setSelectedCategory] = useState('all');
+
+    const [showOngoing, setShowOngoing] = useState(false);
     const [selectedEventForModal, setSelectedEventForModal] = useState(null);
     const [studentProfile, setStudentProfile] = useState(null);
-
-    // Category → College listing
-    const [categoryBrowseModal, setCategoryBrowseModal] = useState(null);
-    const [collegeList, setCollegeList] = useState([]);
-    const [collegeListLoading, setCollegeListLoading] = useState(false);
 
     // Edit Profile Modal
     const [showEditModal, setShowEditModal] = useState(false);
@@ -93,21 +90,7 @@ export default function StudentDashboard({ searchQuery = '', showFilter = false,
         }
     };
 
-    const handleCategoryBrowse = async (category) => {
-        setCategoryBrowseModal(category);
-        setCollegeListLoading(true);
-        try {
-            const res = await axios.get(`http://localhost:5000/api/student/events-by-category/${category}`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            setCollegeList(res.data);
-        } catch (err) {
-            console.error(err);
-            setCollegeList([]);
-        } finally {
-            setCollegeListLoading(false);
-        }
-    };
+
 
     const handleEditProfile = async (e) => {
         e.preventDefault();
@@ -202,7 +185,8 @@ export default function StudentDashboard({ searchQuery = '', showFilter = false,
                 <div
                     className="glass-card animate-fade-in animate-delay-1"
                     onClick={() => {
-                        document.getElementById('applied-events-section')?.scrollIntoView({ behavior: 'smooth' });
+                        setShowOngoing(!showOngoing);
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
                     }}
                     style={{
                         padding: '2rem',
@@ -226,107 +210,104 @@ export default function StudentDashboard({ searchQuery = '', showFilter = false,
             </div>
 
             {/* ── Event Category Icons Browser ── */}
-            <div className="animate-fade-in animate-delay-2" style={{ marginBottom: '2.5rem' }}>
-                <h2 className="outfit-font" style={{ fontSize: '1.5rem', marginBottom: '1rem', color: 'var(--text-primary)' }}>Browse Active Categories</h2>
-                <div className="category-icon-grid">
-                    {Object.entries(CATEGORY_ICONS).map(([key, { icon: IconComp, color, label }]) => {
-                        const count = events.filter(e => e.category === key && !isEventFinished(e) && !hasAppliedToEvent(e._id)).length;
-                        return (
-                            <button
-                                key={key}
-                                className="category-icon-card glass-card"
-                                onClick={() => handleCategoryBrowse(key)}
-                                style={{ textAlign: 'center', padding: '1.5rem', cursor: 'pointer', border: 'none', width: '100%' }}
-                            >
-                                <div className="category-icon-circle" style={{ background: `${color}15`, borderColor: color }}>
-                                    <IconComp size={28} style={{ color }} />
-                                </div>
-                                <p style={{ fontWeight: 600, marginTop: '0.75rem', fontSize: '0.95rem' }}>{label}</p>
-                                <p style={{ color: 'var(--text-tertiary)', fontSize: '0.8rem' }}>{count} event{count !== 1 ? 's' : ''}</p>
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.25rem', marginTop: '0.5rem', color, fontSize: '0.75rem', fontWeight: 600 }}>
-                                    View Colleges <ChevronRight size={14} />
-                                </div>
-                            </button>
-                        );
-                    })}
-                </div>
-            </div>
-
-            {/* ── Category Filter Bar ── */}
-            {showFilter && (
-                <div className="glass-panel" style={{ padding: '1rem', marginBottom: '2rem', display: 'flex', gap: '1rem', overflowX: 'auto' }}>
-                    {['all', 'technical', 'non-technical', 'sports', 'workshop'].map(cat => (
-                        <button
-                            key={cat}
-                            className={`btn ${selectedCategory === cat ? 'btn-primary' : 'btn-outline'}`}
-                            onClick={() => setSelectedCategory(cat)}
-                            style={{ textTransform: 'capitalize', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
-                        >
-                            {cat !== 'all' && CATEGORY_ICONS[cat] && (() => { const IC = CATEGORY_ICONS[cat].icon; return <IC size={16} />; })()}
-                            {cat === 'all' ? 'All Events' : CATEGORY_ICONS[cat]?.label || cat}
-                        </button>
-                    ))}
+            {!showOngoing && (
+                <div className="animate-fade-in animate-delay-2" style={{ marginBottom: '2.5rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                        <h2 className="outfit-font" style={{ fontSize: '1.5rem', color: 'var(--text-primary)', margin: 0 }}>Browse Categories</h2>
+                        {selectedCategory !== 'all' && (
+                            <button onClick={() => setSelectedCategory('all')} className="btn btn-outline" style={{ padding: '0.25rem 0.75rem', fontSize: '0.8rem' }}>Clear Filter</button>
+                        )}
+                    </div>
+                    <div className="category-icon-grid">
+                        {Object.entries(CATEGORY_ICONS).map(([key, { icon: IconComp, color, label }]) => {
+                            const count = events.filter(e => e.category === key && !isEventFinished(e) && !hasAppliedToEvent(e._id)).length;
+                            const isSelected = selectedCategory === key;
+                            return (
+                                <button
+                                    key={key}
+                                    className={`category-icon-card glass-card ${isSelected ? 'selected-category' : ''}`}
+                                    onClick={() => setSelectedCategory(isSelected ? 'all' : key)}
+                                    style={{
+                                        textAlign: 'center', padding: '1.5rem', cursor: 'pointer', border: isSelected ? `2px solid ${color}` : 'none',
+                                        width: '100%', boxSizing: 'border-box', transform: isSelected ? 'scale(1.02)' : 'scale(1)'
+                                    }}
+                                >
+                                    <div className="category-icon-circle" style={{ background: `${color}15`, borderColor: color, margin: '0 auto' }}>
+                                        <IconComp size={28} style={{ color }} />
+                                    </div>
+                                    <p style={{ fontWeight: 600, marginTop: '0.75rem', fontSize: '0.95rem', color: '#fff' }}>{label}</p>
+                                    <p style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '0.8rem' }}>{count} event{count !== 1 ? 's' : ''}</p>
+                                </button>
+                            );
+                        })}
+                    </div>
                 </div>
             )}
 
             {message && <div style={{ padding: '1rem', background: 'rgba(16, 185, 129, 0.1)', color: 'var(--success)', marginBottom: '2rem', borderRadius: '0.5rem' }}>{message}</div>}
 
             {/* ── Event Updates (Read-Only) ── */}
-            <div className="animate-fade-in animate-delay-3" style={{ marginBottom: '1.5rem' }}>
-                <h2 className="outfit-font" style={{ fontSize: '1.75rem', color: 'var(--text-primary)' }}>📢 Event Updates</h2>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '0.25rem' }}>Browse events from colleges across the network</p>
-            </div>
+            {!showOngoing && (
+                <>
+                    <div className="animate-fade-in animate-delay-3" style={{ marginBottom: '1.5rem' }}>
+                        <h2 className="outfit-font" style={{ fontSize: '1.75rem', color: 'var(--text-primary)' }}>📢 Event Updates</h2>
+                        <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '0.25rem' }}>Browse events from colleges across the network</p>
+                    </div>
 
-            <div className="animate-fade-in animate-delay-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '2rem' }}>
-                {filteredEvents.map(event => {
-                    const cat = CATEGORY_ICONS[event.category];
-                    const IconComp = cat?.icon;
-                    return (
-                        <div key={event._id} className="glass-card" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                            <div style={{ height: '120px', background: cat?.bg || 'linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%)', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', padding: '1rem' }}>
-                                <span style={{ background: 'rgba(255,255,255,0.2)', color: 'white', padding: '0.25rem 0.75rem', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: 600, backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                                    {IconComp && <IconComp size={14} />}
-                                    {event.category.toUpperCase()}
-                                </span>
-                            </div>
-                            <div style={{ padding: '1.5rem', flex: 1, display: 'flex', flexDirection: 'column' }}>
-                                <h3 className="outfit-font" style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '0.5rem' }}>{event.title}</h3>
-                                <p style={{ color: 'var(--accent-primary)', fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                                    <Building2 size={14} /> {event.collegeName || event.organizer?.name || 'Unknown College'}
-                                </p>
-                                <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: '1rem', flex: 1, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{event.description}</p>
-
-                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '1rem', fontSize: '0.8rem', color: 'var(--text-tertiary)' }}>
-                                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}><Calendar size={14} /> {new Date(event.startDate).toLocaleDateString()}</span>
-                                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}><IndianRupee size={14} /> ₹{event.entryFee}</span>
-                                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}><MapPin size={14} /> {event.address}</span>
-                                </div>
-
-                                {/* Bus Routes */}
-                                {(event.collegeBusRoutes || event.localBusRoutes) && (
-                                    <div style={{ marginBottom: '1rem', padding: '0.75rem', background: 'var(--bg-tertiary)', borderRadius: '0.5rem', fontSize: '0.8rem' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontWeight: 600, color: 'var(--accent-primary)', marginBottom: '0.35rem' }}>
-                                            <Bus size={14} /> Bus Routes
-                                        </div>
-                                        {event.collegeBusRoutes && <p style={{ color: 'var(--text-secondary)', whiteSpace: 'pre-line', marginBottom: '0.25rem' }}><strong>College:</strong> {event.collegeBusRoutes}</p>}
-                                        {event.localBusRoutes && <p style={{ color: 'var(--text-secondary)', whiteSpace: 'pre-line' }}><strong>Local:</strong> {event.localBusRoutes}</p>}
+                    <div className="animate-fade-in animate-delay-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '2rem' }}>
+                        {filteredEvents.map(event => {
+                            const cat = CATEGORY_ICONS[event.category];
+                            const IconComp = cat?.icon;
+                            return (
+                                <div key={event._id} className="glass-card" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                                    <div style={{ height: '120px', background: cat?.bg || 'linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%)', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', padding: '1rem' }}>
+                                        <span style={{ background: 'rgba(255,255,255,0.2)', color: 'white', padding: '0.25rem 0.75rem', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: 600, backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                                            {IconComp && <IconComp size={14} />}
+                                            {event.category.toUpperCase()}
+                                        </span>
                                     </div>
-                                )}
+                                    <div style={{ padding: '1.5rem', flex: 1, display: 'flex', flexDirection: 'column' }}>
+                                        <h3 className="outfit-font" style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '0.5rem' }}>{event.title}</h3>
+                                        <p style={{ color: 'var(--accent-primary)', fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                                            <Building2 size={14} /> {event.collegeName || event.organizer?.name || 'Unknown College'}
+                                        </p>
+                                        <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: '1rem', flex: 1, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{event.description}</p>
 
-                                <button onClick={() => setSelectedEventForModal(event)} className="btn btn-primary" style={{ width: '100%', justifyContent: 'center' }}>
-                                    Apply Now
-                                </button>
-                            </div>
-                        </div>
-                    );
-                })}
-                {filteredEvents.length === 0 && <p style={{ color: 'var(--text-secondary)' }}>No events found matching your search.</p>}
-            </div>
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '1rem', fontSize: '0.8rem', color: 'var(--text-tertiary)' }}>
+                                            <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}><Calendar size={14} /> {new Date(event.startDate).toLocaleDateString()}</span>
+                                            <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}><IndianRupee size={14} /> ₹{event.entryFee}</span>
+                                            <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}><MapPin size={14} /> {event.address}</span>
+                                        </div>
+
+                                        {/* Bus Routes */}
+                                        {(event.collegeBusRoutes || event.localBusRoutes) && (
+                                            <div style={{ marginBottom: '1rem', padding: '0.75rem', background: 'var(--bg-tertiary)', borderRadius: '0.5rem', fontSize: '0.8rem' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontWeight: 600, color: 'var(--accent-primary)', marginBottom: '0.35rem' }}>
+                                                    <Bus size={14} /> Local Bus Routes
+                                                </div>
+                                                {event.collegeBusRoutes && <p style={{ color: 'var(--text-secondary)', whiteSpace: 'pre-line', marginBottom: '0.25rem' }}><strong>College Bus:</strong> {event.collegeBusRoutes}</p>}
+                                                {event.localBusRoutes && <p style={{ color: 'var(--text-secondary)', whiteSpace: 'pre-line' }}><strong>Local Bus Stops:</strong> {event.localBusRoutes}</p>}
+                                            </div>
+                                        )}
+
+                                        <button onClick={() => setSelectedEventForModal(event)} className="btn btn-primary" style={{ width: '100%', justifyContent: 'center' }}>
+                                            Apply Now
+                                        </button>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                        {filteredEvents.length === 0 && <p style={{ color: 'var(--text-secondary)' }}>No events found matching your search.</p>}
+                    </div>
+                </>
+            )}
 
             {/* ── My Applied Events + Feedback ── */}
-            {myApplications.filter(app => !isEventFinished(app.event)).length > 0 && (
-                <div id="applied-events-section" className="animate-fade-in" style={{ marginTop: '3rem' }}>
-                    <h2 className="outfit-font" style={{ fontSize: '1.75rem', color: 'var(--text-primary)', marginBottom: '1rem' }}>📋 Ongoing Applications</h2>
+            {(showOngoing || (myApplications.filter(app => !isEventFinished(app.event)).length > 0 && !showOngoing)) && (
+                <div id="applied-events-section" className="animate-fade-in" style={{ marginTop: showOngoing ? '1rem' : '3rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                        <h2 className="outfit-font" style={{ fontSize: '1.75rem', color: 'var(--text-primary)', margin: 0 }}>📋 Ongoing Applications</h2>
+                    </div>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1.5rem' }}>
                         {myApplications.filter(app => !isEventFinished(app.event)).map(app => {
                             const event = app.event;
@@ -425,77 +406,6 @@ export default function StudentDashboard({ searchQuery = '', showFilter = false,
                 </div>
             )}
 
-            {/* ── Category → College Listing Modal ── */}
-            {categoryBrowseModal && (
-                <div className="modal-overlay">
-                    <div className="glass-card modal-content" style={{ width: '100%', maxWidth: '600px', padding: '2rem', position: 'relative', maxHeight: '80vh', overflowY: 'auto' }}>
-                        <button onClick={() => { setCategoryBrowseModal(null); setCollegeList([]); }} style={{ position: 'absolute', top: '1rem', right: '1rem', color: 'var(--text-secondary)' }}>
-                            <X size={24} />
-                        </button>
-
-                        {(() => {
-                            const cat = CATEGORY_ICONS[categoryBrowseModal];
-                            const IconComp = cat?.icon;
-                            return (
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
-                                    <div className="category-icon-circle" style={{ background: `${cat?.color}15`, borderColor: cat?.color, width: '48px', height: '48px' }}>
-                                        {IconComp && <IconComp size={24} style={{ color: cat.color }} />}
-                                    </div>
-                                    <div>
-                                        <h2 className="outfit-font" style={{ fontSize: '1.5rem' }}>{cat?.label} Events</h2>
-                                        <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Colleges conducting {cat?.label?.toLowerCase()} events</p>
-                                    </div>
-                                </div>
-                            );
-                        })()}
-
-                        {collegeListLoading ? (
-                            <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>Loading colleges...</div>
-                        ) : collegeList.length === 0 ? (
-                            <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>No colleges are currently conducting {CATEGORY_ICONS[categoryBrowseModal]?.label?.toLowerCase()} events.</div>
-                        ) : (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                                {collegeList.map((college, idx) => (
-                                    <div key={idx} className="glass-card" style={{ padding: '1.25rem', cursor: 'default' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                                <Building2 size={18} style={{ color: 'var(--accent-primary)' }} />
-                                                <h3 className="outfit-font" style={{ fontSize: '1.1rem', fontWeight: 700 }}>{college.collegeName}</h3>
-                                            </div>
-                                            <span style={{ background: `${CATEGORY_ICONS[categoryBrowseModal]?.color}15`, color: CATEGORY_ICONS[categoryBrowseModal]?.color, padding: '0.2rem 0.6rem', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: 600 }}>
-                                                {college.eventCount} event{college.eventCount !== 1 ? 's' : ''}
-                                            </span>
-                                        </div>
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                                            {college.events.filter(ev => !hasAppliedToEvent(ev._id)).map(ev => (
-                                                <div key={ev._id} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', padding: '0.75rem', background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem' }}>
-                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                        <span style={{ fontWeight: 600 }}>{ev.title}</span>
-                                                        <span style={{ color: 'var(--text-tertiary)', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                                                            <Calendar size={12} /> {new Date(ev.startDate).toLocaleDateString()}
-                                                        </span>
-                                                    </div>
-
-                                                    {/* Show bus routes here when browsing by college */}
-                                                    {(ev.collegeBusRoutes || ev.localBusRoutes) && (
-                                                        <div style={{ marginTop: '0.25rem', padding: '0.5rem', background: 'rgba(255,255,255,0.03)', borderRadius: '4px', border: '1px solid var(--border-color)', fontSize: '0.8rem' }}>
-                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontWeight: 600, color: 'var(--accent-primary)', marginBottom: '0.25rem' }}>
-                                                                <Bus size={12} /> Transport Info
-                                                            </div>
-                                                            {ev.collegeBusRoutes && <p style={{ color: 'var(--text-secondary)', whiteSpace: 'pre-line', marginBottom: '0.25rem' }}><strong>College Bus:</strong> {ev.collegeBusRoutes}</p>}
-                                                            {ev.localBusRoutes && <p style={{ color: 'var(--text-secondary)', whiteSpace: 'pre-line' }}><strong>Local Bus:</strong> {ev.localBusRoutes}</p>}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                </div>
-            )}
 
             {/* ── Edit Profile Modal ── */}
             {showEditModal && editProfile && (
