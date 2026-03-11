@@ -164,9 +164,15 @@ export default function StudentDashboard({ searchQuery = '', showFilter = false,
         return new Date() > new Date(event.endDate);
     };
 
+    const hasAppliedToEvent = (eventId) => {
+        return myApplications.some(app => app.event && app.event._id === eventId);
+    };
+
     if (loading) return <div style={{ padding: '2rem' }}>Loading Events...</div>;
 
     const filteredEvents = events.filter(event => {
+        if (isEventFinished(event)) return false;
+        if (hasAppliedToEvent(event._id)) return false;
         const matchesSearch = event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
             event.category.toLowerCase().includes(searchQuery.toLowerCase());
         const matchesCategory = selectedCategory === 'all' || event.category === selectedCategory;
@@ -184,32 +190,47 @@ export default function StudentDashboard({ searchQuery = '', showFilter = false,
 
             {/* ── Stats Cards ── */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem', marginBottom: '3rem' }}>
-                <div className="glass-card" style={{ padding: '2rem' }}>
+                <div className="glass-card animate-fade-in" style={{ padding: '2rem' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <h3 className="outfit-font" style={{ fontSize: '1.25rem', color: 'var(--text-secondary)' }}>Total Events Available</h3>
+                        <h3 className="outfit-font" style={{ fontSize: '1.25rem', color: 'var(--text-secondary)' }}>Total Active Events</h3>
                         <div style={{ display: 'flex', alignItems: 'center', color: 'var(--accent-primary)' }}>
                             <LayoutList size={24} />
                         </div>
                     </div>
-                    <p style={{ fontSize: '3rem', fontWeight: 700, marginTop: '0.5rem' }}>{events.length}</p>
+                    <p style={{ fontSize: '3rem', fontWeight: 700, marginTop: '0.5rem' }}>{events.filter(e => !isEventFinished(e) && !hasAppliedToEvent(e._id)).length}</p>
                 </div>
-                <div className="glass-card" style={{ padding: '2rem' }}>
+                <div
+                    className="glass-card animate-fade-in animate-delay-1"
+                    onClick={() => {
+                        document.getElementById('applied-events-section')?.scrollIntoView({ behavior: 'smooth' });
+                    }}
+                    style={{
+                        padding: '2rem',
+                        cursor: 'pointer',
+                        transition: 'all 0.3s ease'
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.03)'; e.currentTarget.style.boxShadow = '0 8px 32px rgba(99, 102, 241, 0.15)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = ''; }}
+                >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <h3 className="outfit-font" style={{ fontSize: '1.25rem', color: 'var(--text-secondary)' }}>My Applications</h3>
+                        <h3 className="outfit-font" style={{ fontSize: '1.25rem', color: 'var(--text-secondary)' }}>Ongoing Applications</h3>
                         <div style={{ display: 'flex', alignItems: 'center', color: 'var(--info)' }}>
                             <FileText size={24} />
                         </div>
                     </div>
-                    <p style={{ fontSize: '3rem', fontWeight: 700, marginTop: '0.5rem', color: 'var(--info)' }}>{myApplications.length}</p>
+                    <p style={{ fontSize: '3rem', fontWeight: 700, marginTop: '0.5rem', color: 'var(--info)' }}>{myApplications.filter(app => !isEventFinished(app.event)).length}</p>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-tertiary)', marginTop: '0.25rem' }}>
+                        Click to view application status
+                    </p>
                 </div>
             </div>
 
             {/* ── Event Category Icons Browser ── */}
-            <div style={{ marginBottom: '2.5rem' }}>
-                <h2 className="outfit-font" style={{ fontSize: '1.5rem', marginBottom: '1rem', color: 'var(--text-primary)' }}>Browse by Category</h2>
+            <div className="animate-fade-in animate-delay-2" style={{ marginBottom: '2.5rem' }}>
+                <h2 className="outfit-font" style={{ fontSize: '1.5rem', marginBottom: '1rem', color: 'var(--text-primary)' }}>Browse Active Categories</h2>
                 <div className="category-icon-grid">
                     {Object.entries(CATEGORY_ICONS).map(([key, { icon: IconComp, color, label }]) => {
-                        const count = events.filter(e => e.category === key).length;
+                        const count = events.filter(e => e.category === key && !isEventFinished(e) && !hasAppliedToEvent(e._id)).length;
                         return (
                             <button
                                 key={key}
@@ -251,12 +272,12 @@ export default function StudentDashboard({ searchQuery = '', showFilter = false,
             {message && <div style={{ padding: '1rem', background: 'rgba(16, 185, 129, 0.1)', color: 'var(--success)', marginBottom: '2rem', borderRadius: '0.5rem' }}>{message}</div>}
 
             {/* ── Event Updates (Read-Only) ── */}
-            <div style={{ marginBottom: '1.5rem' }}>
+            <div className="animate-fade-in animate-delay-3" style={{ marginBottom: '1.5rem' }}>
                 <h2 className="outfit-font" style={{ fontSize: '1.75rem', color: 'var(--text-primary)' }}>📢 Event Updates</h2>
                 <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '0.25rem' }}>Browse events from colleges across the network</p>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '2rem' }}>
+            <div className="animate-fade-in animate-delay-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '2rem' }}>
                 {filteredEvents.map(event => {
                     const cat = CATEGORY_ICONS[event.category];
                     const IconComp = cat?.icon;
@@ -303,11 +324,11 @@ export default function StudentDashboard({ searchQuery = '', showFilter = false,
             </div>
 
             {/* ── My Applied Events + Feedback ── */}
-            {myApplications.length > 0 && (
-                <div style={{ marginTop: '3rem' }}>
-                    <h2 className="outfit-font" style={{ fontSize: '1.75rem', color: 'var(--text-primary)', marginBottom: '1rem' }}>📋 My Applied Events</h2>
+            {myApplications.filter(app => !isEventFinished(app.event)).length > 0 && (
+                <div id="applied-events-section" className="animate-fade-in" style={{ marginTop: '3rem' }}>
+                    <h2 className="outfit-font" style={{ fontSize: '1.75rem', color: 'var(--text-primary)', marginBottom: '1rem' }}>📋 Ongoing Applications</h2>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1.5rem' }}>
-                        {myApplications.map(app => {
+                        {myApplications.filter(app => !isEventFinished(app.event)).map(app => {
                             const event = app.event;
                             if (!event) return null;
                             const cat = CATEGORY_ICONS[event.category];
@@ -446,7 +467,7 @@ export default function StudentDashboard({ searchQuery = '', showFilter = false,
                                             </span>
                                         </div>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                                            {college.events.map(ev => (
+                                            {college.events.filter(ev => !hasAppliedToEvent(ev._id)).map(ev => (
                                                 <div key={ev._id} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', padding: '0.75rem', background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem' }}>
                                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                                         <span style={{ fontWeight: 600 }}>{ev.title}</span>

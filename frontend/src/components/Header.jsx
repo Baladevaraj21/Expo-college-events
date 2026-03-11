@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Search, ArrowLeft, Settings, Bell, User as UserIcon, Menu, Filter, Moon, Sun, Clock, Building2, UserCircle } from 'lucide-react';
+import { Search, ArrowLeft, Settings, Bell, User as UserIcon, Menu, Filter, Moon, Sun, Clock, Building2, UserCircle, History, HelpCircle, MessageCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 
@@ -42,14 +42,26 @@ export default function Header({ onSearch, onFilterToggle, onSelectNotifEvent })
         if (!token || !user) return;
         const fetchInitialNotifications = async () => {
             try {
+                let currentNotifs = [];
                 if (user.role === 'student') {
                     const res = await axios.get('http://localhost:5000/api/student/events', { headers: { Authorization: `Bearer ${token}` } });
-                    setNotifications(res.data.slice(0, 5));
-                    if (res.data.length > 0) setHasNewNotifications(true);
+                    currentNotifs = res.data.slice(0, 5);
                 } else if (user.role === 'college') {
                     const res = await axios.get('http://localhost:5000/api/college/applications', { headers: { Authorization: `Bearer ${token}` } });
-                    setNotifications(res.data.slice(0, 5));
-                    if (res.data.length > 0) setHasNewNotifications(true);
+                    currentNotifs = res.data.slice(0, 5);
+                }
+
+                setNotifications(currentNotifs);
+
+                // Determine if there are NEW notifications
+                const lastViewed = localStorage.getItem(`lastViewedNotif_${user._id}`);
+                if (currentNotifs.length > 0) {
+                    if (!lastViewed) {
+                        setHasNewNotifications(true);
+                    } else {
+                        const hasNewer = currentNotifs.some(n => new Date(n.createdAt) > new Date(lastViewed));
+                        if (hasNewer) setHasNewNotifications(true);
+                    }
                 }
             } catch (err) {
                 console.error("Failed to fetch notifications");
@@ -61,7 +73,11 @@ export default function Header({ onSearch, onFilterToggle, onSelectNotifEvent })
     // Re-fetch when dropdown opens, and mark as read
     useEffect(() => {
         if (!showNotifications || !token || !user) return;
-        setHasNewNotifications(false); // Mark as read when opened
+
+        // Mark as read when opened
+        setHasNewNotifications(false);
+        localStorage.setItem(`lastViewedNotif_${user._id}`, new Date().toISOString());
+
         const fetchNotifications = async () => {
             try {
                 if (user.role === 'student') {
@@ -175,9 +191,23 @@ export default function Header({ onSearch, onFilterToggle, onSelectNotifEvent })
                                 <UserCircle size={16} /> Edit Profile
                             </button>
 
+                            <button onClick={() => { setShowSettings(false); navigate('/history'); }} style={{ textAlign: 'left', padding: '0.5rem 0.75rem', fontSize: '0.875rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem', borderRadius: '0.25rem' }} className="hover-bg-tertiary">
+                                <History size={16} /> Event History
+                            </button>
+
                             <button onClick={() => { setShowSettings(false); toggleTheme(); }} style={{ textAlign: 'left', padding: '0.5rem 0.75rem', fontSize: '0.875rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem', borderRadius: '0.25rem' }} className="hover-bg-tertiary">
                                 {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />}
                                 Theme: {theme === 'light' ? 'Light' : 'Dark'}
+                            </button>
+
+                            <hr style={{ border: 'none', borderTop: '1px solid var(--border-color)', margin: '0.25rem 0' }} />
+
+                            <button onClick={() => { setShowSettings(false); alert("Help & Support coming soon!"); }} style={{ textAlign: 'left', padding: '0.5rem 0.75rem', fontSize: '0.875rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem', borderRadius: '0.25rem' }} className="hover-bg-tertiary">
+                                <HelpCircle size={16} /> Help & Support
+                            </button>
+
+                            <button onClick={() => { setShowSettings(false); alert("FAQs coming soon!"); }} style={{ textAlign: 'left', padding: '0.5rem 0.75rem', fontSize: '0.875rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem', borderRadius: '0.25rem' }} className="hover-bg-tertiary">
+                                <MessageCircle size={16} /> FAQs
                             </button>
 
                             <hr style={{ border: 'none', borderTop: '1px solid var(--border-color)', margin: '0.25rem 0' }} />

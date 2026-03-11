@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
-import { User, Lock, ArrowRight, ShieldCheck } from 'lucide-react';
+import { User, Lock, ArrowRight, ShieldCheck, GraduationCap, Globe, Sparkles } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export default function Login() {
@@ -41,8 +41,8 @@ export default function Login() {
             overflow: 'hidden'
         }}>
             {/* Animated Background Elements */}
-            <div className="animate-float animate-delay-1" style={{ position: 'absolute', top: '10%', left: '5%', width: '300px', height: '300px', background: 'var(--accent-glow)', filter: 'blur(80px)', borderRadius: '50%', zIndex: 0 }}></div>
-            <div className="animate-float animate-delay-2" style={{ position: 'absolute', bottom: '10%', right: '5%', width: '400px', height: '400px', background: 'rgba(16, 185, 129, 0.2)', filter: 'blur(100px)', borderRadius: '50%', zIndex: 0 }}></div>
+            <div className="animate-float animate-delay-1 animate-pulse-glow" style={{ position: 'absolute', top: '10%', left: '5%', width: '300px', height: '300px', background: 'var(--accent-glow)', filter: 'blur(80px)', borderRadius: '50%', zIndex: 0 }}></div>
+            <div className="animate-float animate-delay-2 animate-pulse-glow" style={{ position: 'absolute', bottom: '10%', right: '5%', width: '400px', height: '400px', background: 'rgba(16, 185, 129, 0.2)', filter: 'blur(100px)', borderRadius: '50%', zIndex: 0 }}></div>
 
             <div className="glass-card animate-fade-in" style={{
                 width: '100%',
@@ -65,11 +65,15 @@ export default function Login() {
                     position: 'relative'
                 }} className="hidden md-flex">
                     <div style={{ position: 'relative', zIndex: 1 }}>
-                        <ShieldCheck size={48} style={{ marginBottom: '1.5rem', opacity: 0.9 }} />
-                        <h1 className="outfit-font" style={{ fontSize: '3rem', fontWeight: 800, marginBottom: '1rem', lineHeight: 1.1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
+                            <GraduationCap size={48} className="animate-bounce-slow" style={{ opacity: 0.9, color: '#fff' }} />
+                            <Sparkles size={32} className="animate-float animate-delay-1" style={{ opacity: 0.8, color: '#fbbf24' }} />
+                            <Globe size={40} className="animate-float animate-delay-2" style={{ opacity: 0.8, color: '#6ee7b7' }} />
+                        </div>
+                        <h1 className="outfit-font animate-fade-in" style={{ fontSize: '3rem', fontWeight: 800, marginBottom: '1rem', lineHeight: 1.1 }}>
                             Welcome back to CampusConnect.
                         </h1>
-                        <p style={{ fontSize: '1.1rem', opacity: 0.8, lineHeight: 1.6 }}>
+                        <p className="animate-fade-in animate-delay-1" style={{ fontSize: '1.1rem', opacity: 0.8, lineHeight: 1.6 }}>
                             The most advanced platform for managing and discovering college events, symposiums, and sports.
                         </p>
                     </div>

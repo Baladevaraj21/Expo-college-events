@@ -9,6 +9,7 @@ import StudentProfile from './pages/StudentProfile';
 import StudentApplications from './pages/StudentApplications';
 import CollegeDashboard from './pages/CollegeDashboard';
 import CollegeProfile from './pages/CollegeProfile';
+import EventHistory from './pages/EventHistory';
 
 const PrivateRoute = ({ children, roles }) => {
   const { user, isAuthenticated } = useAuth();
@@ -48,6 +49,8 @@ function AppRoutes() {
 
         <Route path="/college-dashboard" element={<PrivateRoute roles={['college']}><CollegeDashboard /></PrivateRoute>} />
         <Route path="/college-profile" element={<PrivateRoute roles={['college']}><CollegeProfile /></PrivateRoute>} />
+
+        <Route path="/history" element={<PrivateRoute roles={['college', 'student']}><EventHistory /></PrivateRoute>} />
       </Routes>
     </>
   );

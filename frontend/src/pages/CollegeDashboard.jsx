@@ -16,6 +16,13 @@ export default function CollegeDashboard() {
     const [applications, setApplications] = useState([]);
     const [loading, setLoading] = useState(true);
 
+    const isEventFinished = (event) => {
+        if (!event?.endDate) return false;
+        return new Date() > new Date(event.endDate);
+    };
+
+    const activeEvents = events.filter(e => !isEventFinished(e));
+
     // Search and Modal State
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedApplication, setSelectedApplication] = useState(null);
@@ -176,12 +183,12 @@ export default function CollegeDashboard() {
 
             {/* Stats Cards */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem', marginBottom: '3rem' }}>
-                <div className="glass-card" style={{ padding: '2rem' }}>
-                    <h3 className="outfit-font" style={{ fontSize: '1.25rem', color: 'var(--text-secondary)' }}>Total Events Posted</h3>
-                    <p style={{ fontSize: '3rem', fontWeight: 700 }}>{events.length}</p>
+                <div className="glass-card animate-fade-in" style={{ padding: '2rem' }}>
+                    <h3 className="outfit-font" style={{ fontSize: '1.25rem', color: 'var(--text-secondary)' }}>Total Active Events</h3>
+                    <p style={{ fontSize: '3rem', fontWeight: 700 }}>{activeEvents.length}</p>
                 </div>
                 <div
-                    className="glass-card"
+                    className="glass-card animate-fade-in animate-delay-1"
                     onClick={() => setShowApplications(!showApplications)}
                     style={{
                         padding: '2rem',
@@ -197,24 +204,23 @@ export default function CollegeDashboard() {
                         <h3 className="outfit-font" style={{ fontSize: '1.25rem', color: 'var(--text-secondary)' }}>Student List</h3>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--info)' }}>
                             <Users size={20} />
-                            {showApplications ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
                         </div>
                     </div>
                     <p style={{ fontSize: '3rem', fontWeight: 700, color: 'var(--info)' }}>{applications.length}</p>
                     <p style={{ fontSize: '0.8rem', color: 'var(--text-tertiary)', marginTop: '0.25rem' }}>
-                        {showApplications ? 'Click to hide student list' : 'Click to view student list'}
+                        Click to view all student applications
                     </p>
                 </div>
             </div>
 
             {/* Event Category Icons */}
-            <div style={{ marginBottom: '3rem' }}>
-                <h2 className="outfit-font" style={{ fontSize: '1.75rem', marginBottom: '1.5rem' }}>Event Categories</h2>
+            <div className="animate-fade-in animate-delay-2" style={{ marginBottom: '3rem' }}>
+                <h2 className="outfit-font" style={{ fontSize: '1.75rem', marginBottom: '1.5rem' }}>Active Event Categories</h2>
                 <div className="category-icon-grid">
-                    {Object.entries(CATEGORY_ICONS).map(([key, { icon: IconComp, color, label }]) => {
-                        const count = events.filter(e => e.category === key).length;
+                    {Object.entries(CATEGORY_ICONS).map(([key, { icon: IconComp, color, label }], index) => {
+                        const count = activeEvents.filter(e => e.category === key).length;
                         return (
-                            <div key={key} className="category-icon-card glass-card" style={{ textAlign: 'center', padding: '1.5rem', cursor: 'default' }}>
+                            <div key={key} className={`category-icon-card glass-card`} style={{ textAlign: 'center', padding: '1.5rem', cursor: 'default' }}>
                                 <div className="category-icon-circle" style={{ background: `${color}15`, borderColor: color }}>
                                     <IconComp size={28} style={{ color }} />
                                 </div>
@@ -228,9 +234,9 @@ export default function CollegeDashboard() {
 
             {/* My Posted Events */}
             <div style={{ marginBottom: '3rem' }}>
-                <h2 className="outfit-font" style={{ fontSize: '1.75rem', marginBottom: '1.5rem' }}>My Posted Events</h2>
+                <h2 className="outfit-font" style={{ fontSize: '1.75rem', marginBottom: '1.5rem' }}>Ongoing Events</h2>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1.5rem' }}>
-                    {events.map(event => {
+                    {activeEvents.map(event => {
                         const cat = CATEGORY_ICONS[event.category];
                         const IconComp = cat?.icon;
                         return (
@@ -266,9 +272,6 @@ export default function CollegeDashboard() {
                                             onClick={() => {
                                                 setSearchQuery(event.title);
                                                 setShowApplications(true);
-                                                setTimeout(() => {
-                                                    document.getElementById('applications-section')?.scrollIntoView({ behavior: 'smooth' });
-                                                }, 100);
                                             }}
                                         >
                                             <FileText size={16} /> Application List
@@ -278,92 +281,94 @@ export default function CollegeDashboard() {
                             </div>
                         );
                     })}
-                    {events.length === 0 && <p style={{ color: 'var(--text-secondary)' }}>No events posted yet. Create your first event above!</p>}
+                    {activeEvents.length === 0 && <p style={{ color: 'var(--text-secondary)' }}>No active events found. Create your first event above!</p>}
                 </div>
             </div>
 
-            {/* Student Applications Table */}
+            {/* Student Applications Modal */}
             {showApplications && (
-                <div id="applications-section" className="animate-fade-in" style={{ marginBottom: '3rem' }}>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                        <h2 className="outfit-font" style={{ fontSize: '2rem' }}>Student List</h2>
+                <div className="modal-overlay">
+                    <div className="glass-card modal-content" style={{ width: '100%', maxWidth: '1000px', padding: '2rem', position: 'relative', maxHeight: '90vh', overflowY: 'auto' }}>
+                        <button onClick={() => setShowApplications(false)} style={{ position: 'absolute', top: '1.5rem', right: '1.5rem', color: 'var(--text-secondary)', zIndex: 10 }}>
+                            <X size={24} />
+                        </button>
 
-                        {/* Search Bar */}
-                        <div className="input-group" style={{ marginBottom: 0, minWidth: '300px' }}>
-                            <div style={{ position: 'relative' }}>
-                                <Search size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }} />
-                                <input
-                                    type="text"
-                                    className="input-field"
-                                    placeholder="Search students, colleges, or events..."
-                                    value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)}
-                                    style={{ paddingLeft: '2.75rem', borderRadius: '9999px' }}
-                                />
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                            <h2 className="outfit-font" style={{ fontSize: '2rem', margin: 0 }}>Student List</h2>
+
+                            {/* Search Bar */}
+                            <div className="input-group" style={{ marginBottom: 0, minWidth: '300px' }}>
+                                <div style={{ position: 'relative' }}>
+                                    <Search size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }} />
+                                    <input
+                                        type="text"
+                                        className="input-field"
+                                        placeholder="Search students, colleges, or events..."
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                        style={{ paddingLeft: '2.75rem', borderRadius: '9999px' }}
+                                    />
+                                </div>
                             </div>
                         </div>
-                    </div>
 
-                    <div className="glass-card" style={{ overflowX: 'auto', padding: '1px' }}>
-                        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                            <thead>
-                                <tr style={{ background: 'var(--bg-tertiary)', borderBottom: '1px solid var(--border-color)' }}>
-                                    <th style={{ padding: '1.5rem 1rem', fontWeight: 600 }}>Student details</th>
-                                    <th style={{ padding: '1.5rem 1rem', fontWeight: 600 }}>Contact Info</th>
-                                    <th style={{ padding: '1.5rem 1rem', fontWeight: 600 }}>Event</th>
-                                    <th style={{ padding: '1.5rem 1rem', fontWeight: 600 }}>Status</th>
-                                    <th style={{ padding: '1.5rem 1rem', fontWeight: 600 }}>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {applications
-                                    .filter(app => {
-                                        // 1. Filter to only show 'applied' students if that's the intended requirement 
-                                        // (Alternatively we can just show the indicator, but the user requested "show the indication only who are applyed")
-                                        if (app.status !== 'applied') return false;
-
-                                        if (!searchQuery) return true;
-                                        const q = searchQuery.toLowerCase();
-                                        return (
-                                            app.student?.name?.toLowerCase().includes(q) ||
-                                            app.student?.college?.toLowerCase().includes(q) ||
-                                            app.event?.title?.toLowerCase().includes(q)
-                                        );
-                                    })
-                                    .map(app => (
-                                        <tr key={app._id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                                            <td style={{ padding: '1rem' }}>
-                                                <div style={{ fontWeight: 600, color: 'var(--accent-primary)' }}>{app.student?.name}</div>
-                                                <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>🏫 {app.student?.college}</div>
-                                                {app.student?.department && <div style={{ fontSize: '0.8rem', color: 'var(--text-tertiary)' }}>Dept: {app.student?.department} {app.student?.year ? `(${app.student?.year})` : ''}</div>}
-                                            </td>
-                                            <td style={{ padding: '1rem' }}>
-                                                <div style={{ fontSize: '0.875rem' }}>📧 {app.student?.email}</div>
-                                                {app.student?.mobile && <div style={{ fontSize: '0.875rem' }}>📞 {app.student?.mobile}</div>}
-                                            </td>
-                                            <td style={{ padding: '1rem' }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                                    {getCategoryIcon(app.event?.category)}
-                                                    {app.event?.title}
-                                                </div>
-                                            </td>
-                                            <td style={{ padding: '1rem', textAlign: 'center' }}>
-                                                <div style={{
-                                                    width: '12px', height: '12px', borderRadius: '50%', margin: '0 auto',
-                                                    background: app.status === 'confirmed' ? 'var(--success)' : 'var(--warning)',
-                                                    boxShadow: `0 0 10px ${app.status === 'confirmed' ? 'var(--success)' : 'var(--warning)'}`
-                                                }} title={app.status.toUpperCase()} />
-                                            </td>
-                                            <td style={{ padding: '1rem' }}>
-                                                <button onClick={() => setSelectedApplication(app)} className="btn btn-outline" style={{ padding: '0.35rem 0.75rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                                                    <Eye size={14} /> View Details
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                {applications.length === 0 && <tr><td colSpan="5" style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)' }}>No applications received yet.</td></tr>}
-                            </tbody>
-                        </table>
+                        <div style={{ overflowX: 'auto', padding: '1px', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-lg)' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                                <thead>
+                                    <tr style={{ background: 'var(--bg-tertiary)', borderBottom: '1px solid var(--border-color)' }}>
+                                        <th style={{ padding: '1.25rem 1rem', fontWeight: 600 }}>Student details</th>
+                                        <th style={{ padding: '1.25rem 1rem', fontWeight: 600 }}>Contact Info</th>
+                                        <th style={{ padding: '1.25rem 1rem', fontWeight: 600 }}>Event</th>
+                                        <th style={{ padding: '1.25rem 1rem', fontWeight: 600 }}>Status</th>
+                                        <th style={{ padding: '1.25rem 1rem', fontWeight: 600 }}>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {applications
+                                        .filter(app => {
+                                            if (!searchQuery) return true;
+                                            const q = searchQuery.toLowerCase();
+                                            return (
+                                                app.student?.name?.toLowerCase().includes(q) ||
+                                                app.student?.college?.toLowerCase().includes(q) ||
+                                                app.event?.title?.toLowerCase().includes(q)
+                                            );
+                                        })
+                                        .map(app => (
+                                            <tr key={app._id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                                                <td style={{ padding: '1rem' }}>
+                                                    <div style={{ fontWeight: 600, color: 'var(--accent-primary)' }}>{app.student?.name}</div>
+                                                    <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>🏫 {app.student?.college}</div>
+                                                    {app.student?.department && <div style={{ fontSize: '0.8rem', color: 'var(--text-tertiary)' }}>Dept: {app.student?.department} {app.student?.year ? `(${app.student?.year})` : ''}</div>}
+                                                </td>
+                                                <td style={{ padding: '1rem' }}>
+                                                    <div style={{ fontSize: '0.875rem' }}>📧 {app.student?.email}</div>
+                                                    {app.student?.mobile && <div style={{ fontSize: '0.875rem' }}>📞 {app.student?.mobile}</div>}
+                                                </td>
+                                                <td style={{ padding: '1rem' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                        {getCategoryIcon(app.event?.category)}
+                                                        {app.event?.title}
+                                                    </div>
+                                                </td>
+                                                <td style={{ padding: '1rem', textAlign: 'center' }}>
+                                                    <div style={{
+                                                        width: '12px', height: '12px', borderRadius: '50%', margin: '0 auto',
+                                                        background: app.status === 'confirmed' ? 'var(--success)' : 'var(--warning)',
+                                                        boxShadow: `0 0 10px ${app.status === 'confirmed' ? 'var(--success)' : 'var(--warning)'}`
+                                                    }} title={app.status.toUpperCase()} />
+                                                </td>
+                                                <td style={{ padding: '1rem' }}>
+                                                    <button onClick={() => setSelectedApplication(app)} className="btn btn-outline" style={{ padding: '0.35rem 0.75rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                                                        <Eye size={14} /> View Details
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    {applications.length === 0 && <tr><td colSpan="5" style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)' }}>No applications received yet.</td></tr>}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             )}

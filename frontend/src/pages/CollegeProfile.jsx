@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import { Share2, Building2, MapPin, Phone } from 'lucide-react';
 
 export default function CollegeProfile() {
-    const { token, user } = useAuth();
+    const { token, user, updateUser } = useAuth();
+    const navigate = useNavigate();
     const [profile, setProfile] = useState({ name: '', collegeAddress: '', mobile: '' });
     const [profilePicFile, setProfilePicFile] = useState(null);
     const [profilePicUrl, setProfilePicUrl] = useState('');
@@ -43,13 +45,17 @@ export default function CollegeProfile() {
         if (profilePicFile) formData.append('profilePic', profilePicFile);
 
         try {
-            await axios.put('http://localhost:5000/api/college/profile', formData, {
+            const res = await axios.put('http://localhost:5000/api/college/profile', formData, {
                 headers: {
                     Authorization: `Bearer ${token}`,
                     'Content-Type': 'multipart/form-data'
                 }
             });
-            setMessage('College profile updated successfully!');
+            updateUser(res.data);
+            setMessage('College profile updated successfully! Redirecting...');
+            setTimeout(() => {
+                navigate('/college-dashboard');
+            }, 1500);
         } catch (err) {
             setMessage('Failed to update profile.');
         } finally {
