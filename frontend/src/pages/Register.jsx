@@ -1,108 +1,147 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
-import { User, Lock, Mail, ArrowRight, ShieldCheck } from 'lucide-react';
+import { User, Mail, Lock, Building2, ArrowRight, AlertCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export default function Register() {
-    const [formData, setFormData] = useState({ name: '', email: '', password: '', role: 'student' });
-    const [step, setStep] = useState(1);
-    const [otp, setOtp] = useState('');
-    const [error, setError] = useState('');
-    const [loading, setLoading] = useState(false);
-    const navigate = useNavigate();
     const { login } = useAuth();
+    const [formData, setFormData] = useState({ name: '', email: '', password: '', role: 'student' });
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
+    const navigate = useNavigate();
 
-    const handleRegister = async (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
         setError('');
         try {
-            if (step === 1) {
-                const res = await axios.post('http://localhost:5000/api/auth/register', formData);
-                if (res.data.requireOtp) {
-                    setStep(2);
-                }
-            } else {
-                const res = await axios.post('http://localhost:5000/api/auth/verify-otp', { identifier: formData.email, otp });
+            const res = await axios.post('http://localhost:5000/api/auth/register', formData);
+            // Handle auto-login
+            if (res.data.token && res.data.user) {
                 login(res.data.token, res.data.user);
+                // Redirect based on role
                 if (res.data.user.role === 'college') {
                     navigate('/college-dashboard');
                 } else {
                     navigate('/student-dashboard');
                 }
+            } else {
+                // Fallback to login if token not returned for some reason
+                navigate('/login', { state: { message: 'Registration successful! Please login.' } });
             }
         } catch (err) {
-            setError(err.response?.data?.message || 'Registration failed');
+            setError(err.response?.data?.message || 'Registration failed. Please try again.');
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' }}>
-            <div className="animate-float" style={{ position: 'absolute', top: '-10%', right: '-5%', width: '400px', height: '400px', background: 'rgba(99, 102, 241, 0.2)', filter: 'blur(100px)', borderRadius: '50%', zIndex: 0 }}></div>
-            <div className="glass-card animate-fade-in" style={{ width: '100%', maxWidth: '600px', padding: '3rem', zIndex: 10 }}>
-                <h2 className="outfit-font" style={{ fontSize: '2.5rem', fontWeight: 800, marginBottom: '0.5rem', textAlign: 'center' }}>Join CampusConnect</h2>
-                <p style={{ textAlign: 'center', color: 'var(--text-secondary)', marginBottom: '2rem' }}>Create an account to discover and manage events.</p>
+        <div className="auth-container" style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-primary)', padding: '2rem' }}>
+            <div className="glass-card animate-scale-in" style={{ width: '100%', maxWidth: '480px', padding: '2.5rem', boxShadow: '0 8px 32px rgba(0,0,0,0.2)' }}>
+                <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
+                    <h1 className="outfit-font" style={{ fontSize: '2.25rem', fontWeight: 700, marginBottom: '0.5rem', background: 'linear-gradient(135deg, var(--accent-primary), #7c3aed)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                        Join Expo-College Events
+                    </h1>
+                    <p style={{ color: 'var(--text-secondary)' }}>Create your account to get started</p>
+                </div>
 
-                {error && <div style={{ padding: '1rem', background: 'rgba(239, 68, 68, 0.1)', color: 'var(--error)', borderRadius: '0.5rem', marginBottom: '1.5rem', border: '1px solid var(--error)' }}>{error}</div>}
+                {error && (
+                    <div style={{ padding: '1rem', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '0.75rem', color: '#ef4444', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '0.9rem' }}>
+                        <AlertCircle size={18} /> {error}
+                    </div>
+                )}
 
-                <form onSubmit={handleRegister} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '0.5rem' }}>
+                        <button
+                            type="button"
+                            onClick={() => setFormData({ ...formData, role: 'student' })}
+                            style={{
+                                padding: '1rem', borderRadius: '1rem', border: '2px solid',
+                                borderColor: formData.role === 'student' ? 'var(--accent-primary)' : 'var(--border-color)',
+                                background: formData.role === 'student' ? 'rgba(99, 102, 241, 0.1)' : 'transparent',
+                                color: formData.role === 'student' ? 'var(--accent-primary)' : 'var(--text-secondary)',
+                                cursor: 'pointer', transition: 'all 0.2s', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem'
+                            }}
+                        >
+                            <User size={24} />
+                            <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>Student</span>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setFormData({ ...formData, role: 'college' })}
+                            style={{
+                                padding: '1rem', borderRadius: '1rem', border: '2px solid',
+                                borderColor: formData.role === 'college' ? '#14b8a6' : 'var(--border-color)',
+                                background: formData.role === 'college' ? 'rgba(20, 184, 166, 0.1)' : 'transparent',
+                                color: formData.role === 'college' ? '#14b8a6' : 'var(--text-secondary)',
+                                cursor: 'pointer', transition: 'all 0.2s', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem'
+                            }}
+                        >
+                            <Building2 size={24} />
+                            <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>College Admin</span>
+                        </button>
+                    </div>
 
-                    {step === 1 ? (
-                        <>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                                <button type="button" onClick={() => setFormData({ ...formData, role: 'student' })} style={{ padding: '1rem', borderRadius: '0.5rem', border: formData.role === 'student' ? '2px solid var(--accent-primary)' : '1px solid var(--border-color)', background: formData.role === 'student' ? 'rgba(79, 70, 229, 0.05)' : 'var(--bg-primary)', color: 'var(--text-primary)', fontWeight: 600, transition: 'all 0.2s' }}>
-                                    👩‍🎓 Student
-                                </button>
-                                <button type="button" onClick={() => setFormData({ ...formData, role: 'college' })} style={{ padding: '1rem', borderRadius: '0.5rem', border: formData.role === 'college' ? '2px solid var(--accent-primary)' : '1px solid var(--border-color)', background: formData.role === 'college' ? 'rgba(79, 70, 229, 0.05)' : 'var(--bg-primary)', color: 'var(--text-primary)', fontWeight: 600, transition: 'all 0.2s' }}>
-                                    🏛️ College Admin
-                                </button>
-                            </div>
+                    <div className="input-group">
+                        <label className="input-label" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <User size={16} /> Full Name / College Name
+                        </label>
+                        <input
+                            type="text"
+                            required
+                            className="input-field"
+                            placeholder={formData.role === 'student' ? "Enter your full name" : "Enter college name"}
+                            value={formData.name}
+                            onChange={e => setFormData({ ...formData, name: e.target.value })}
+                        />
+                    </div>
 
-                            <div style={{ position: 'relative' }}>
-                                <User size={20} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }} />
-                                <input type="text" required value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} style={{ width: '100%', padding: '0.875rem 1rem 0.875rem 3rem', borderRadius: '0.5rem', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-primary)', outline: 'none' }} placeholder={formData.role === 'student' ? "Your Full Name" : "College/Organization Name"} />
-                            </div>
+                    <div className="input-group">
+                        <label className="input-label" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <Mail size={16} /> Email Address
+                        </label>
+                        <input
+                            type="email"
+                            required
+                            className="input-field"
+                            placeholder="name@example.com"
+                            value={formData.email}
+                            onChange={e => setFormData({ ...formData, email: e.target.value })}
+                        />
+                    </div>
 
-                            <div style={{ position: 'relative' }}>
-                                <Mail size={20} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }} />
-                                <input type="email" required value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} style={{ width: '100%', padding: '0.875rem 1rem 0.875rem 3rem', borderRadius: '0.5rem', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-primary)', outline: 'none' }} placeholder="Email Address" />
-                            </div>
+                    <div className="input-group">
+                        <label className="input-label" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <Lock size={16} /> Password
+                        </label>
+                        <input
+                            type="password"
+                            required
+                            className="input-field"
+                            placeholder="••••••••"
+                            minLength="6"
+                            value={formData.password}
+                            onChange={e => setFormData({ ...formData, password: e.target.value })}
+                        />
+                    </div>
 
-                            <div style={{ position: 'relative' }}>
-                                <Lock size={20} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }} />
-                                <input type="password" required value={formData.password} onChange={e => setFormData({ ...formData, password: e.target.value })} style={{ width: '100%', padding: '0.875rem 1rem 0.875rem 3rem', borderRadius: '0.5rem', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-primary)', outline: 'none' }} placeholder="Password (min 6 chars)" minLength="6" />
-                            </div>
-                        </>
-                    ) : (
-                        <div style={{ position: 'relative' }}>
-                            <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>Enter 6-digit OTP</label>
-                            <div style={{ position: 'relative' }}>
-                                <ShieldCheck size={20} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }} />
-                                <input
-                                    type="text"
-                                    required
-                                    value={otp}
-                                    onChange={e => setOtp(e.target.value)}
-                                    style={{ width: '100%', padding: '0.875rem 1rem 0.875rem 3rem', borderRadius: '0.5rem', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-primary)', outline: 'none', transition: 'all 0.2s', letterSpacing: '0.5rem', textAlign: 'center' }}
-                                    placeholder="000000"
-                                    maxLength={6}
-                                />
-                            </div>
-                            <p style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', marginTop: '0.5rem' }}>An OTP has been sent to {formData.email}. Please check your inbox.</p>
-                            <button type="button" onClick={() => { setStep(1); setOtp(''); }} style={{ background: 'none', border: 'none', color: 'var(--accent-primary)', fontSize: '0.8rem', marginTop: '1rem', cursor: 'pointer', textDecoration: 'underline' }}>Back to edit details</button>
-                        </div>
-                    )}
-
-                    <button type="submit" disabled={loading} className="btn btn-primary" style={{ width: '100%', padding: '1rem', fontSize: '1rem', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem' }}>
-                        {loading ? 'Processing...' : (step === 1 ? 'Create Account' : 'Verify & Complete')} <ArrowRight size={20} />
+                    <button
+                        type="submit"
+                        disabled={loading}
+                        className="btn btn-primary"
+                        style={{ padding: '1rem', justifyContent: 'center', fontSize: '1rem', marginTop: '1rem' }}
+                    >
+                        {loading ? 'Creating Account...' : (
+                            <>Create Account <ArrowRight size={18} style={{ marginLeft: '0.5rem' }} /></>
+                        )}
                     </button>
                 </form>
 
-                <div style={{ marginTop: '2rem', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-                    Already have an account? <Link to="/login" style={{ color: 'var(--accent-primary)', fontWeight: 600 }}>Sign in</Link>
+                <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+                    Already have an account? <Link to="/login" style={{ color: 'var(--accent-primary)', fontWeight: 600, textDecoration: 'none' }}>Sign In</Link>
                 </div>
             </div>
         </div>

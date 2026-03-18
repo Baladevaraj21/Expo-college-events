@@ -6,6 +6,7 @@ const { authenticate, authorize } = require("../middleware/auth");
 const User = require("../models/User");
 const Event = require("../models/Event");
 const Application = require("../models/Application");
+const Notification = require("../models/Notification");
 
 // Multer Config
 const storage = multer.diskStorage({
@@ -60,6 +61,41 @@ router.put(
         }
     }
 );
+
+// @route   PUT /api/student/change-username
+// @desc    Change student display name
+router.put("/change-username", authenticate, authorize("student"), async (req, res) => {
+    try {
+        const { name } = req.body;
+        if (!name || name.trim().length < 2) return res.status(400).json({ message: "Name must be at least 2 characters." });
+        const user = await User.findByIdAndUpdate(req.user.id, { $set: { name: name.trim() } }, { new: true }).select("-password");
+        res.json({ message: "Username updated successfully!", user });
+    } catch (err) {
+        console.error(err);
+        res.status(500).send("Server Error");
+    }
+});
+
+// @route   PUT /api/student/change-password
+// @desc    Change student password
+router.put("/change-password", authenticate, authorize("student"), async (req, res) => {
+    try {
+        const { currentPassword, newPassword } = req.body;
+        if (!currentPassword || !newPassword) return res.status(400).json({ message: "Both fields are required." });
+        if (newPassword.length < 6) return res.status(400).json({ message: "New password must be at least 6 characters." });
+        const bcrypt = require("bcryptjs");
+        const user = await User.findById(req.user.id);
+        const isMatch = await bcrypt.compare(currentPassword, user.password);
+        if (!isMatch) return res.status(400).json({ message: "Current password is incorrect." });
+        const salt = await bcrypt.genSalt(10);
+        user.password = await bcrypt.hash(newPassword, salt);
+        await user.save();
+        res.json({ message: "Password changed successfully!" });
+    } catch (err) {
+        console.error(err);
+        res.status(500).send("Server Error");
+    }
+});
 
 // @route   POST /api/student/upload-certificate
 // @desc    Upload a certificate (PDF only)
@@ -130,41 +166,59 @@ router.get("/events-by-category/:category", authenticate, authorize("student"), 
 
 // @route   POST /api/student/applications
 // @desc    Apply to event
-router.post("/applications", authenticate, authorize("student"), async (req, res) => {
+router.post("/applications", authenticate, authorize("student"), upload.single("paymentScreenshot"), async (req, res) => {
     try {
-        const { eventId, studentDetails } = req.body;
+        const { eventId, name, year, department, email, phoneNumber } = req.body;
 
         let existing = await Application.findOne({ event: eventId, student: req.user.id });
         if (existing) return res.status(400).json({ message: "Already applied" });
 
-        // Update student profile if details are provided
-        if (studentDetails) {
-            await User.findByIdAndUpdate(
-                req.user.id,
-                { $set: studentDetails },
-                { new: true }
-            );
-        }
+        const applicationNumber = "APP" + Date.now() + Math.floor(Math.random() * 1000);
 
-        const application = new Application({
+        const applicationData = {
             event: eventId,
             student: req.user.id,
-            status: "applied"
-        });
+            status: "applied",
+            applicationNumber,
+            name,
+            year,
+            department,
+            email,
+            phoneNumber,
+            selectedEvents: req.body.selectedEvents ? (typeof req.body.selectedEvents === 'string' ? JSON.parse(req.body.selectedEvents) : req.body.selectedEvents) : []
+        };
+
+        if (req.file) {
+            applicationData.paymentScreenshot = req.file.path.replace(/\\/g, "/");
+        }
+
+        const application = new Application(applicationData);
         await application.save();
+
+        // Notify the college about this new application
+        const event = await Event.findById(eventId).populate('organizer', 'name');
+        if (event && event.organizer) {
+            const notif = new Notification({
+                user: event.organizer._id,
+                type: "NEW_APPLICATION",
+                message: `New application received for ${event.title} from ${name || 'a student'}.`,
+                relatedEvent: eventId,
+                relatedUser: req.user.id
+            });
+            await notif.save();
+        }
 
         // Send confirmation email
         try {
             const user = await User.findById(req.user.id);
-            const event = await Event.findById(eventId).populate('organizer', 'name');
             const collegeName = event.collegeName || event.organizer?.name || "the college";
             const sendEmail = require("../utils/sendEmail");
 
             await sendEmail({
                 to: user.email,
                 subject: `Application Confirmation - ${event.title}`,
-                text: `Dear ${user.name},\n\nYou have successfully applied for the event "${event.title}" organized by ${collegeName}.\n\nDate: ${new Date(event.startDate).toLocaleDateString()}\nLocation: ${event.address}\n\nGood luck!`,
-                html: `<p>Dear <strong>${user.name}</strong>,</p><p>You have successfully applied for the event <strong>"${event.title}"</strong> organized by ${collegeName}.</p><p><strong>Date:</strong> ${new Date(event.startDate).toLocaleDateString()}<br><strong>Location:</strong> ${event.address}</p><p>Good luck!</p>`
+                text: `Dear ${user.name},\n\nYou have successfully applied for the event "${event.title}" organized by ${collegeName}.\nYour Application Number: ${applicationNumber}\n\nDate: ${new Date(event.startDate).toLocaleDateString()}\nLocation: ${event.address}\n\nGood luck!`,
+                html: `<p>Dear <strong>${user.name}</strong>,</p><p>You have successfully applied for the event <strong>"${event.title}"</strong> organized by ${collegeName}.</p><p><strong>Application Number:</strong> ${applicationNumber}</p><p><strong>Date:</strong> ${new Date(event.startDate).toLocaleDateString()}<br><strong>Location:</strong> ${event.address}</p><p>Good luck!</p>`
             });
         } catch (emailErr) {
             console.error("Error sending application confirmation email:", emailErr);
@@ -173,6 +227,7 @@ router.post("/applications", authenticate, authorize("student"), async (req, res
 
         res.json(application);
     } catch (err) {
+        console.error(err);
         res.status(500).send("Server Error");
     }
 });
@@ -240,6 +295,127 @@ router.get("/my-applications", authenticate, authorize("student"), async (req, r
             .populate("event")
             .sort({ createdAt: -1 });
         res.json(applications);
+    } catch (err) {
+        res.status(500).send("Server Error");
+    }
+});
+
+// @route   GET /api/student/search
+// @desc    Search colleges
+router.get("/search", authenticate, authorize("student"), async (req, res) => {
+    try {
+        const { query } = req.query;
+        let queryObj = { role: "college" };
+        if (query) {
+            queryObj.name = { $regex: query, $options: "i" };
+        }
+        const colleges = await User.find(queryObj).select("name profilePic followers following email mobile collegeAddress");
+        res.json(colleges);
+    } catch (err) {
+        res.status(500).send("Server Error");
+    }
+});
+
+// @route   POST /api/student/follow/:id
+// @desc    Follow a college
+router.post("/follow/:id", authenticate, authorize("student"), async (req, res) => {
+    try {
+        const targetUserId = req.params.id;
+        const currentUserId = req.user.id;
+
+        const targetUser = await User.findById(targetUserId);
+        const currentUser = await User.findById(currentUserId);
+
+        if (!targetUser) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        if (targetUserId === currentUserId) {
+            return res.status(400).json({ message: "Cannot follow yourself" });
+        }
+
+        if (currentUser.following.includes(targetUserId)) {
+            return res.status(400).json({ message: "Already following" });
+        }
+
+        currentUser.following.push(targetUserId);
+        targetUser.followers.push(currentUserId);
+
+        await currentUser.save();
+        await targetUser.save();
+
+        // Notify the target user
+        const notif = new Notification({
+            user: targetUserId,
+            type: "NEW_FOLLOWER",
+            message: `${currentUser.name} started following you.`,
+            relatedUser: currentUserId
+        });
+        await notif.save();
+
+        res.json({ success: true, user: currentUser.toObject({ transform: (doc, ret) => { delete ret.password; return ret; } }) });
+    } catch (err) {
+        res.status(500).send("Server Error");
+    }
+});
+
+// @route   DELETE /api/student/unfollow/:id
+// @desc    Unfollow a college
+router.delete("/unfollow/:id", authenticate, authorize("student"), async (req, res) => {
+    try {
+        const targetUserId = req.params.id;
+        const currentUserId = req.user.id;
+
+        const targetUser = await User.findById(targetUserId);
+        const currentUser = await User.findById(currentUserId);
+
+        if (!targetUser) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        currentUser.following = currentUser.following.filter(id => id.toString() !== targetUserId);
+        targetUser.followers = targetUser.followers.filter(id => id.toString() !== currentUserId);
+
+        await currentUser.save();
+        await targetUser.save();
+
+        res.json({ success: true, user: currentUser.toObject({ transform: (doc, ret) => { delete ret.password; return ret; } }) });
+    } catch (err) {
+        res.status(500).send("Server Error");
+    }
+});
+
+// @route   GET /api/student/notifications
+// @desc    Get student notifications
+router.get("/notifications", authenticate, authorize("student"), async (req, res) => {
+    try {
+        const notifications = await Notification.find({ user: req.user.id })
+            .populate("relatedUser", "name profilePic")
+            .populate("relatedEvent", "title")
+            .sort({ createdAt: -1 });
+        res.json(notifications);
+    } catch (err) {
+        res.status(500).send("Server Error");
+    }
+});
+
+// @route   GET /api/student/followers
+// @desc    Get detailed list of followers
+router.get("/followers", authenticate, authorize("student"), async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id).populate('followers', 'name profilePic role email');
+        res.json(user.followers);
+    } catch (err) {
+        res.status(500).send("Server Error");
+    }
+});
+
+// @route   GET /api/student/following
+// @desc    Get detailed list of followed colleges
+router.get("/following", authenticate, authorize("student"), async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id).populate('following', 'name profilePic role email collegeAddress');
+        res.json(user.following);
     } catch (err) {
         res.status(500).send("Server Error");
     }

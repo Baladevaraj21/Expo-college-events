@@ -22,7 +22,7 @@ mongoose.connect(process.env.MONGODB_URI).then(() => {
 
 // Root Route for Browser Testing
 app.get("/", (req, res) => {
-    res.send("Welcome to the CampusConnect Backend API! 🚀 (The server is running perfectly)");
+    res.send("Welcome to the Expo-College Events Backend API! 🚀 (The server is running perfectly)");
 });
 
 // Routes Placeholder
@@ -30,6 +30,7 @@ app.use("/api/auth", require("./routes/auth"));
 app.use("/api/college", require("./routes/college"));
 app.use("/api/student", require("./routes/student"));
 app.use("/api/student", require("./routes/studentApplications")); // Mapped so it joins with the base URL
+app.use("/api/common", require("./routes/common"));
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {

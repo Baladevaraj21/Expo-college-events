@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Search, ArrowLeft, Settings, Bell, User as UserIcon, Menu, Filter, Moon, Sun, Clock, Building2, UserCircle, History, HelpCircle, MessageCircle } from 'lucide-react';
+import { Search, ArrowLeft, Settings, Bell, User as UserIcon, Menu, Filter, Moon, Sun, Clock, Building2, UserCircle, History, HelpCircle, MessageCircle, Users, UserCheck, UserPlus, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 
 export default function Header({ onSearch, onSelectNotifEvent }) {
-    const { user, token, logout } = useAuth();
+    const { user, token, logout, updateUser } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
     const [theme, setTheme] = useState(localStorage.getItem('theme') || 'light');
@@ -16,6 +16,13 @@ export default function Header({ onSearch, onSelectNotifEvent }) {
     // Notification Data
     const [notifications, setNotifications] = useState([]);
     const [hasNewNotifications, setHasNewNotifications] = useState(false);
+
+    // Follow Data
+    const [showFollowers, setShowFollowers] = useState(false);
+    const [showFollowing, setShowFollowing] = useState(false);
+    const [followersList, setFollowersList] = useState([]);
+    const [followingList, setFollowingList] = useState([]);
+    const [userData, setUserData] = useState(null);
 
     // Detect outside clicks to close dropdowns
     const navRef = useRef(null);
@@ -42,16 +49,17 @@ export default function Header({ onSearch, onSelectNotifEvent }) {
         if (!token || !user) return;
         const fetchInitialNotifications = async () => {
             try {
-                let currentNotifs = [];
-                if (user.role === 'student') {
-                    const res = await axios.get('http://localhost:5000/api/student/events', { headers: { Authorization: `Bearer ${token}` } });
-                    currentNotifs = res.data.slice(0, 5);
-                } else if (user.role === 'college') {
-                    const res = await axios.get('http://localhost:5000/api/college/applications', { headers: { Authorization: `Bearer ${token}` } });
-                    currentNotifs = res.data.slice(0, 5);
-                }
-
+                const endpoint = user.role === 'student' ? 'http://localhost:5000/api/student/notifications' : 'http://localhost:5000/api/college/notifications';
+                const profileEndpoint = user.role === 'student' ? 'http://localhost:5000/api/student/profile' : 'http://localhost:5000/api/college/profile';
+                
+                const [notifRes, profileRes] = await Promise.all([
+                    axios.get(endpoint, { headers: { Authorization: `Bearer ${token}` } }),
+                    axios.get(profileEndpoint, { headers: { Authorization: `Bearer ${token}` } })
+                ]);
+                
+                const currentNotifs = notifRes.data;
                 setNotifications(currentNotifs);
+                setUserData(profileRes.data);
 
                 // Determine if there are NEW notifications
                 const lastViewed = localStorage.getItem(`lastViewedNotif_${user._id}`);
@@ -64,11 +72,44 @@ export default function Header({ onSearch, onSelectNotifEvent }) {
                     }
                 }
             } catch (err) {
-                console.error("Failed to fetch notifications");
+                console.error("Failed to fetch notifications or profile");
             }
         };
         fetchInitialNotifications();
     }, [token, user]);
+
+    // Fetch Lists on demand
+    const fetchFollowers = async () => {
+        try {
+            const endpoint = user.role === 'college' ? 'http://localhost:5000/api/college/followers' : 'http://localhost:5000/api/student/followers';
+            const res = await axios.get(endpoint, { headers: { Authorization: `Bearer ${token}` } });
+            setFollowersList(res.data);
+            setShowFollowers(true);
+        } catch(err) { console.error("Error fetching followers", err); }
+    };
+
+    const fetchFollowing = async () => {
+        try {
+            const endpoint = user.role === 'college' ? 'http://localhost:5000/api/college/following' : 'http://localhost:5000/api/student/following';
+            const res = await axios.get(endpoint, { headers: { Authorization: `Bearer ${token}` } });
+            setFollowingList(res.data);
+            setShowFollowing(true);
+        } catch(err) { console.error("Error fetching following", err); }
+    };
+
+    const handleUnfollow = async (targetId) => {
+        try {
+            const endpoint = user.role === 'college' ? `http://localhost:5000/api/college/unfollow/${targetId}` : `http://localhost:5000/api/student/unfollow/${targetId}`;
+            const res = await axios.delete(endpoint, { headers: { Authorization: `Bearer ${token}` } });
+            setFollowingList(prev => prev.filter(u => u._id !== targetId));
+            if (res.data.user) {
+                updateUser(res.data.user);
+            }
+            if (userData) {
+                setUserData({ ...userData, following: userData.following.filter(id => id !== targetId) });
+            }
+        } catch(err) { console.error("Error unfollowing", err); }
+    };
 
     // Re-fetch when dropdown opens, and mark as read
     useEffect(() => {
@@ -90,13 +131,9 @@ export default function Header({ onSearch, onSelectNotifEvent }) {
 
         const fetchNotifications = async () => {
             try {
-                if (user.role === 'student') {
-                    const res = await axios.get('http://localhost:5000/api/student/events', { headers: { Authorization: `Bearer ${token}` } });
-                    setNotifications(res.data.slice(0, 5));
-                } else if (user.role === 'college') {
-                    const res = await axios.get('http://localhost:5000/api/college/applications', { headers: { Authorization: `Bearer ${token}` } });
-                    setNotifications(res.data.slice(0, 5));
-                }
+                const endpoint = user.role === 'student' ? 'http://localhost:5000/api/student/notifications' : 'http://localhost:5000/api/college/notifications';
+                const res = await axios.get(endpoint, { headers: { Authorization: `Bearer ${token}` } });
+                setNotifications(res.data);
             } catch (err) {
                 console.error("Failed to fetch notifications");
             }
@@ -117,7 +154,7 @@ export default function Header({ onSearch, onSelectNotifEvent }) {
                     </button>
                 )}
                 <h1 className="outfit-font" style={{ fontSize: '1.5rem', color: 'var(--accent-primary)', fontWeight: 700, margin: 0, cursor: 'pointer' }} onClick={() => navigate(user.role === 'college' ? '/college-dashboard' : '/student-dashboard')}>
-                    CampusConnect
+                    Expo-College Events
                 </h1>
             </div>
 
@@ -137,6 +174,43 @@ export default function Header({ onSearch, onSelectNotifEvent }) {
             )}
 
             <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', position: 'relative' }}>
+                
+                {/* Social Counts with icons — navigates to /follow page */}
+                {userData && (
+                    <div style={{ display: 'flex', gap: '0.5rem', marginRight: '0.5rem' }}>
+                        <button
+                            onClick={() => navigate('/follow')}
+                            style={{
+                                display: 'flex', alignItems: 'center', gap: '0.45rem',
+                                background: 'var(--bg-tertiary)', border: '1px solid var(--border-color)',
+                                borderRadius: '9999px', padding: '0.3rem 0.85rem', cursor: 'pointer',
+                                color: 'var(--text-primary)', transition: 'all 0.2s'
+                            }}
+                            onMouseEnter={e => e.currentTarget.style.boxShadow = '0 0 0 2px var(--accent-primary)'}
+                            onMouseLeave={e => e.currentTarget.style.boxShadow = 'none'}
+                        >
+                            <Users size={15} style={{ color: 'var(--accent-primary)' }} />
+                            <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>{userData.followers?.length || 0}</span>
+                            <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>Followers</span>
+                        </button>
+                        <button
+                            onClick={() => navigate('/follow')}
+                            style={{
+                                display: 'flex', alignItems: 'center', gap: '0.45rem',
+                                background: 'var(--bg-tertiary)', border: '1px solid var(--border-color)',
+                                borderRadius: '9999px', padding: '0.3rem 0.85rem', cursor: 'pointer',
+                                color: 'var(--text-primary)', transition: 'all 0.2s'
+                            }}
+                            onMouseEnter={e => e.currentTarget.style.boxShadow = '0 0 0 2px #10b981'}
+                            onMouseLeave={e => e.currentTarget.style.boxShadow = 'none'}
+                        >
+                            <UserCheck size={15} style={{ color: '#10b981' }} />
+                            <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>{userData.following?.length || 0}</span>
+                            <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>Following</span>
+                        </button>
+                    </div>
+                )}
+
                 <button onClick={toggleTheme} style={{ color: 'var(--text-secondary)' }}>
                     {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
                 </button>
@@ -148,35 +222,45 @@ export default function Header({ onSearch, onSelectNotifEvent }) {
                         {hasNewNotifications && <span style={{ position: 'absolute', top: '-4px', right: '-4px', width: '8px', height: '8px', background: 'var(--error)', borderRadius: '50%' }}></span>}
                     </button>
                     {showNotifications && (
-                        <div className="glass-card" style={{ position: 'absolute', right: 0, top: '40px', width: '320px', maxHeight: '400px', overflowY: 'auto', padding: '1rem', zIndex: 101, display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                            <h3 className="outfit-font" style={{ fontSize: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', marginBottom: '0.25rem' }}>Notifications</h3>
-
-                            {notifications.length === 0 ? (
-                                <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', textAlign: 'center', padding: '1rem 0' }}>No new notifications.</p>
-                            ) : (
-                                notifications.map(notif => (
-                                    <div key={notif._id} style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', padding: '0.75rem', background: 'var(--bg-tertiary)', borderRadius: '0.5rem', cursor: 'pointer' }} onClick={() => {
-                                        setShowNotifications(false);
-                                        if (user.role === 'student' && onSelectNotifEvent) {
-                                            onSelectNotifEvent(notif);
-                                        }
-                                        navigate(user.role === 'college' ? '/college-dashboard' : '/student-dashboard');
-                                    }}>
-                                        {user.role === 'student' ? (
-                                            <>
-                                                <p style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>New Event: {notif.title}</p>
-                                                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}><Building2 size={12} /> {notif.collegeName || notif.organizer?.name}</p>
-                                            </>
-                                        ) : (
-                                            <>
-                                                <p style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>New Applicant: {notif.student?.name}</p>
-                                                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>Event: {notif.event?.title}</p>
-                                            </>
-                                        )}
-                                        <span style={{ fontSize: '0.65rem', color: 'var(--text-tertiary)', display: 'flex', alignItems: 'center', gap: '0.2rem', marginTop: '0.25rem' }}><Clock size={10} /> {new Date(notif.createdAt).toLocaleDateString()}</span>
+                        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, width: '100vw', height: '100vh', zIndex: 9999, background: 'var(--bg-primary)', display: 'flex', flexDirection: 'column' }}>
+                            <div style={{ padding: '1.5rem 3rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)' }}>
+                                <h1 className="outfit-font" style={{ fontSize: '1.75rem', margin: 0, color: 'var(--text-primary)' }}>Your Notifications</h1>
+                                <button onClick={() => setShowNotifications(false)} style={{ color: 'var(--text-primary)', padding: '0.75rem', background: 'var(--bg-secondary)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <ArrowLeft size={24} />
+                                </button>
+                            </div>
+                            <div style={{ padding: '2rem 1rem', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '1rem', maxWidth: '800px', margin: '0 auto', width: '100%' }}>
+                                {notifications.length === 0 ? (
+                                    <div style={{ textAlign: 'center', padding: '4rem 0', color: 'var(--text-secondary)' }}>
+                                        <Bell size={48} style={{ opacity: 0.5, margin: '0 0 1rem 0' }} />
+                                        <p style={{ fontSize: '1.2rem', margin: 0 }}>You're all caught up!</p>
+                                        <p style={{ fontSize: '0.9rem', color: 'var(--text-tertiary)', marginTop: '0.5rem' }}>When colleges update you, it'll show up here.</p>
                                     </div>
-                                ))
-                            )}
+                                ) : (
+                                    notifications.map(notif => (
+                                        <div key={notif._id} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', padding: '1.5rem', background: 'var(--bg-tertiary)', borderRadius: '0.75rem', cursor: 'pointer', border: '1px solid var(--border-color)', transition: 'transform 0.2s' }} onClick={() => {
+                                            setShowNotifications(false);
+                                            if (notif.relatedUser) {
+                                                navigate(notif.relatedUser.role === 'college' ? `/college/${notif.relatedUser._id}` : `/student/${notif.relatedUser._id}`);
+                                            }
+                                        }}>
+                                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem' }}>
+                                                {notif.relatedUser && notif.relatedUser.profilePic ? (
+                                                    <img src={`http://localhost:5000/${notif.relatedUser.profilePic}`} style={{ width: 48, height: 48, borderRadius: '50%', objectFit: 'cover' }} alt="Profile" />
+                                                ) : (
+                                                    <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'var(--bg-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                        <UserIcon size={24} style={{ color: 'var(--text-secondary)' }} />
+                                                    </div>
+                                                )}
+                                                <div style={{ flex: 1 }}>
+                                                    <p style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text-primary)' }}>{notif.message}</p>
+                                                    <span style={{ fontSize: '0.8rem', color: 'var(--text-tertiary)', display: 'flex', alignItems: 'center', gap: '0.25rem', marginTop: '0.5rem' }}><Clock size={12} /> {new Date(notif.createdAt).toLocaleString()}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
                         </div>
                     )}
                 </div>
@@ -231,32 +315,80 @@ export default function Header({ onSearch, onSelectNotifEvent }) {
                         </div>
                     )}
                 </div>
-
-                <div style={{ position: 'relative' }}>
-                    <button onClick={() => setShowMenu(!showMenu)} style={{ color: 'var(--text-secondary)', display: 'flex', alignItems: 'center' }}>
-                        <Menu size={24} />
-                    </button>
-                    {showMenu && (
-                        <div className="glass-card" style={{ position: 'absolute', right: 0, top: '40px', padding: '0.5rem', minWidth: '180px', display: 'flex', flexDirection: 'column', gap: '0.5rem', zIndex: 101 }}>
-                            <div style={{ padding: '0.5rem', borderBottom: '1px solid var(--border-color)', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                {user.profilePic ? (
-                                    <div style={{ width: '32px', height: '32px', borderRadius: '50%', overflow: 'hidden', flexShrink: 0 }}>
-                                        <img src={`http://localhost:5000/${user.profilePic}`} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                    </div>
-                                ) : (
-                                    <UserCircle size={32} style={{ color: 'var(--text-secondary)' }} />
-                                )}
-                                <div>
-                                    <b>{user.name}</b><br />
-                                    <span style={{ color: 'var(--text-secondary)', textTransform: 'capitalize' }}>{user.role}</span>
-                                </div>
-                            </div>
-                            <button onClick={() => { setShowMenu(false); navigate(user.role === 'college' ? '/college-profile' : '/student-profile'); }} style={{ textAlign: 'left', padding: '0.5rem', fontSize: '0.875rem', width: '100%', color: 'var(--text-primary)' }}>Profile</button>
-                            <button onClick={() => { setShowMenu(false); logout(); }} style={{ textAlign: 'left', padding: '0.5rem', fontSize: '0.875rem', color: 'var(--error)', width: '100%' }}>Logout</button>
-                        </div>
-                    )}
-                </div>
             </div>
+
+            {/* Followers Modal */}
+            {showFollowers && (
+                <div className="modal-overlay" onClick={() => setShowFollowers(false)} style={{ zIndex: 9999 }}>
+                    <div className="glass-card modal-content" onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: '400px', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
+                        <div style={{ padding: '1.25rem', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <h2 style={{ fontSize: '1.1rem', margin: 0, fontWeight: 600 }}>Followers</h2>
+                            <button onClick={() => setShowFollowers(false)} style={{ color: 'var(--text-secondary)', background: 'none', border: 'none', cursor: 'pointer' }}><X size={20} /></button>
+                        </div>
+                        <div style={{ padding: '1rem', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                            {followersList.length === 0 ? (
+                                <p style={{ color: 'var(--text-secondary)', textAlign: 'center' }}>No followers yet.</p>
+                            ) : (
+                                followersList.map(follower => (
+                                    <div 
+                                        key={follower._id} 
+                                        style={{ display: 'flex', alignItems: 'center', gap: '1rem', cursor: 'pointer', padding: '0.5rem', borderRadius: '0.5rem' }}
+                                        onClick={() => { setShowFollowers(false); navigate(follower.role === 'college' ? `/college/${follower._id}` : `/student/${follower._id}`); }}
+                                        className="hover-bg-tertiary"
+                                    >
+                                        {follower.profilePic ? (
+                                            <img src={`http://localhost:5000/${follower.profilePic}`} style={{ width: 44, height: 44, borderRadius: '50%', objectFit: 'cover' }} alt="Profile" />
+                                        ) : (
+                                            <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'var(--bg-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><UserIcon size={20} /></div>
+                                        )}
+                                        <div style={{ flex: 1 }}>
+                                            <p style={{ margin: 0, fontWeight: 600, fontSize: '0.95rem' }}>{follower.name}</p>
+                                            <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-tertiary)' }}>{follower.role}</p>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Following Modal */}
+            {showFollowing && (
+                <div className="modal-overlay" onClick={() => setShowFollowing(false)} style={{ zIndex: 9999 }}>
+                    <div className="glass-card modal-content" onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: '400px', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
+                        <div style={{ padding: '1.25rem', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <h2 style={{ fontSize: '1.1rem', margin: 0, fontWeight: 600 }}>Following</h2>
+                            <button onClick={() => setShowFollowing(false)} style={{ color: 'var(--text-secondary)', background: 'none', border: 'none', cursor: 'pointer' }}><X size={20} /></button>
+                        </div>
+                        <div style={{ padding: '1rem', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                            {followingList.length === 0 ? (
+                                <p style={{ color: 'var(--text-secondary)', textAlign: 'center' }}>Not following anyone yet.</p>
+                            ) : (
+                                followingList.map(followingUser => (
+                                    <div 
+                                        key={followingUser._id} 
+                                        style={{ display: 'flex', alignItems: 'center', gap: '1rem', cursor: 'pointer', padding: '0.5rem', borderRadius: '0.5rem' }}
+                                        onClick={() => { setShowFollowing(false); navigate(followingUser.role === 'college' ? `/college/${followingUser._id}` : `/student/${followingUser._id}`); }}
+                                        className="hover-bg-tertiary"
+                                    >
+                                        {followingUser.profilePic ? (
+                                            <img src={`http://localhost:5000/${followingUser.profilePic}`} style={{ width: 44, height: 44, borderRadius: '50%', objectFit: 'cover' }} alt="Profile" />
+                                        ) : (
+                                            <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'var(--bg-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{followingUser.role === 'college' ? <Building2 size={20} /> : <UserIcon size={20} />}</div>
+                                        )}
+                                        <div style={{ flex: 1 }}>
+                                            <p style={{ margin: 0, fontWeight: 600, fontSize: '0.95rem' }}>{followingUser.name}</p>
+                                            <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-tertiary)' }}>{followingUser.role}</p>
+                                        </div>
+                                        <button onClick={(e) => { e.stopPropagation(); handleUnfollow(followingUser._id); }} className="btn btn-outline" style={{ padding: '0.35rem 0.75rem', fontSize: '0.8rem' }}>Unfollow</button>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
         </nav>
     );
 }

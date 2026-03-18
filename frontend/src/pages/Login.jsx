@@ -68,7 +68,7 @@ export default function Login() {
                             <Globe size={40} className="animate-float animate-delay-2" style={{ opacity: 0.8, color: '#6ee7b7' }} />
                         </div>
                         <h1 className="outfit-font animate-fade-in" style={{ fontSize: '3rem', fontWeight: 800, marginBottom: '1rem', lineHeight: 1.1 }}>
-                            Welcome back to CampusConnect.
+                            Welcome back to Expo-College Events.
                         </h1>
                         <p className="animate-fade-in animate-delay-1" style={{ fontSize: '1.1rem', opacity: 0.8, lineHeight: 1.6 }}>
                             The most advanced platform for managing and discovering college events, symposiums, and sports.

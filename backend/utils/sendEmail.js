@@ -40,7 +40,7 @@ const sendEmail = async ({ to, subject, text, html }) => {
         }
 
         const info = await transporter.sendMail({
-            from: '"CampusConnect" <noreply@campusconnect.com>',
+            from: '"Expo-College Events" <noreply@expo-college-events.com>',
             to,
             subject,
             text,

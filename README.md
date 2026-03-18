@@ -1,6 +1,6 @@
-# CampusConnect
+# Expo-College Events
 
-CampusConnect is a full-stack web application designed to centralize the management and display of inter-college events, catering to both College Administrators and Students.
+Expo-College Events is a full-stack web application designed to centralize the management and display of inter-college events, catering to both College Administrators and Students.
 
 ## 🚀 Features
 
@@ -33,8 +33,8 @@ CampusConnect is a full-stack web application designed to centralize the managem
 
 ### 2. Clone the Repository
 ```bash
-git clone https://github.com/your-username/campusconnect.git
-cd campusconnect
+git clone https://github.com/your-username/expo-college-events.git
+cd expo-college-events
 ```
 
 ### 3. Backend Setup
@@ -49,7 +49,7 @@ cd campusconnect
 3. Create a `.env` file in the `backend` directory (DO NOT commit this file) and add:
    ```env
    PORT=5000
-   MONGODB_URI=mongodb://127.0.0.1:27017/campusconnect-overhaul
+   MONGODB_URI=mongodb://127.0.0.1:27017/expo-college-events-overhaul
    JWT_SECRET=your_super_secret_jwt_key
    ```
 4. Start the backend development server:

@@ -1,32 +1,115 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
-import { X, Monitor, Palette, Trophy, Wrench, Calendar, MapPin, Clock, IndianRupee, Building2, ChevronRight, User, Bus, Edit3, Star, MessageSquare, Send, FileText, LayoutList } from 'lucide-react';
+import { X, Monitor, Palette, Trophy, Wrench, Calendar, MapPin, Clock, IndianRupee, Building2, ChevronRight, User, Bus, Edit3, Star, MessageSquare, Send, FileText, LayoutList, Users } from 'lucide-react';
 
 const CATEGORY_ICONS = {
-    technical: { icon: Monitor, color: '#6366f1', bg: 'linear-gradient(135deg, #6366f1 0%, #818cf8 100%)', label: 'Technical' },
-    'non-technical': { icon: Palette, color: '#ec4899', bg: 'linear-gradient(135deg, #ec4899 0%, #f472b6 100%)', label: 'Non-Technical' },
-    sports: { icon: Trophy, color: '#f59e0b', bg: 'linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%)', label: 'Sports' },
-    workshop: { icon: Wrench, color: '#10b981', bg: 'linear-gradient(135deg, #10b981 0%, #34d399 100%)', label: 'Workshop' },
+    Symposium: { icon: Users, color: '#8b5cf6', bg: 'linear-gradient(135deg, #8b5cf6 0%, #a78bfa 100%)', label: 'Symposium' },
+    Sports: { icon: Trophy, color: '#f59e0b', bg: 'linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%)', label: 'Sports' },
+    Events: { icon: Calendar, color: '#14b8a6', bg: 'linear-gradient(135deg, #14b8a6 0%, #2dd4bf 100%)', label: 'General Events' }
 };
 
-export default function StudentDashboard({ searchQuery = '', notifEvent = null, clearNotifEvent }) {
-    const { token } = useAuth();
+const SUBCATEGORY_ICONS = {
+    Technical: { icon: Monitor, color: '#6366f1', label: 'Technical' },
+    'Non-Technical': { icon: Palette, color: '#ec4899', label: 'Non-Technical' },
+    Workshop: { icon: Wrench, color: '#10b981', label: 'Workshop' }
+};
+
+export default function StudentDashboard({ notifEvent = null, clearNotifEvent }) {
+    const { token, user, updateUser } = useAuth();
+    const navigate = useNavigate();
     const [events, setEvents] = useState([]);
     const [loading, setLoading] = useState(true);
     const [message, setMessage] = useState('');
 
     // Filter & Category
+    const [searchQuery, setSearchQuery] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('all');
+    const [selectedSubCategory, setSelectedSubCategory] = useState('all');
 
     const [showOngoing, setShowOngoing] = useState(false);
     const [selectedEventForModal, setSelectedEventForModal] = useState(null);
     const [studentProfile, setStudentProfile] = useState(null);
+    const [showConfirmation, setShowConfirmation] = useState(false);
+    const [lastAppliedEventTitle, setLastAppliedEventTitle] = useState('');
 
     // Edit Profile Modal
     const [showEditModal, setShowEditModal] = useState(false);
     const [editProfile, setEditProfile] = useState(null);
     const [editLoading, setEditLoading] = useState(false);
+
+    // Apply Form State
+    const [applyForm, setApplyForm] = useState({ name: '', email: '', phoneNumber: '', department: '', year: '', paymentScreenshot: null, selectedEvents: [] });
+
+    useEffect(() => {
+        if (selectedEventForModal && studentProfile) {
+            setApplyForm({
+                name: studentProfile.name || '',
+                email: studentProfile.email || '',
+                phoneNumber: studentProfile.mobile || '',
+                department: studentProfile.department || '',
+                year: studentProfile.year || '',
+                paymentScreenshot: null,
+                selectedEvents: []
+            });
+        }
+    }, [selectedEventForModal, studentProfile]);
+
+    // College Search State
+    const [searchCollegeQuery, setSearchCollegeQuery] = useState('');
+    const [collegeResults, setCollegeResults] = useState([]);
+    // Track which college IDs are currently followed
+    const [followingIds, setFollowingIds] = useState(new Set());
+    const [followLoading, setFollowLoading] = useState(new Set());
+
+    const handleSearchColleges = async () => {
+        if (!searchCollegeQuery) {
+            setCollegeResults([]);
+            return;
+        }
+        try {
+            const res = await axios.get(`http://localhost:5000/api/student/search?query=${searchCollegeQuery}`, { headers: { Authorization: `Bearer ${token}` } });
+            setCollegeResults(res.data);
+        } catch(err) { console.error(err) }
+    };
+
+    useEffect(() => {
+        const timeoutId = setTimeout(() => {
+            handleSearchColleges();
+        }, 500);
+        return () => clearTimeout(timeoutId);
+    }, [searchQuery]);
+
+    // Sync following status from global user state
+    useEffect(() => {
+        if (user?.following) {
+            setFollowingIds(new Set(user.following));
+        }
+    }, [user?.following]);
+
+    const handleFollowToggle = async (collegeId) => {
+        setFollowLoading(prev => new Set(prev).add(collegeId));
+        try {
+            const isFollowing = followingIds.has(collegeId);
+            if (isFollowing) {
+                const res = await axios.delete(`http://localhost:5000/api/student/unfollow/${collegeId}`, { headers: { Authorization: `Bearer ${token}` } });
+                if (res.data.user) updateUser(res.data.user);
+            } else {
+                const res = await axios.post(`http://localhost:5000/api/student/follow/${collegeId}`, {}, { headers: { Authorization: `Bearer ${token}` } });
+                if (res.data.user) updateUser(res.data.user);
+            }
+        } catch(err) {
+            console.error(err);
+        } finally {
+            setFollowLoading(prev => { const next = new Set(prev); next.delete(collegeId); return next; });
+        }
+    };
+
+    // Also keep old name for full-screen profile button compatibility
+    const handleFollowCollege = handleFollowToggle;
+
+    // Full Screen College Profile State (REMOVED - Use /college/:id)
 
     // My Applied Events + Feedback
     const [myApplications, setMyApplications] = useState([]);
@@ -57,6 +140,15 @@ export default function StudentDashboard({ searchQuery = '', notifEvent = null, 
             console.error("Failed to fetch applications", err);
         }
 
+        // Fetch currently followed colleges to populate followingIds
+        try {
+            const followRes = await axios.get('http://localhost:5000/api/student/following', { headers: { Authorization: `Bearer ${token}` } });
+            const ids = new Set(followRes.data.map(c => c._id));
+            setFollowingIds(ids);
+        } catch (err) {
+            console.error("Failed to fetch following list", err);
+        }
+
         setLoading(false);
     };
 
@@ -76,16 +168,32 @@ export default function StudentDashboard({ searchQuery = '', notifEvent = null, 
         e.preventDefault();
         setMessage('');
         try {
-            await axios.post('http://localhost:5000/api/student/applications', {
-                eventId: selectedEventForModal._id,
-                studentDetails: studentProfile // Send the potentially modified details
-            }, {
-                headers: { Authorization: `Bearer ${token}` }
+            const formData = new FormData();
+            formData.append('eventId', selectedEventForModal._id);
+            formData.append('name', applyForm.name);
+            formData.append('email', applyForm.email);
+            formData.append('phoneNumber', applyForm.phoneNumber);
+            formData.append('year', applyForm.year);
+            formData.append('department', applyForm.department);
+            if (applyForm.paymentScreenshot) {
+                formData.append('paymentScreenshot', applyForm.paymentScreenshot);
+            }
+            formData.append('selectedEvents', JSON.stringify(applyForm.selectedEvents));
+
+            await axios.post('http://localhost:5000/api/student/applications', formData, {
+                headers: { 
+                    Authorization: `Bearer ${token}`,
+                    'Content-Type': 'multipart/form-data'
+                }
             });
-            setMessage('Successfully applied to the event & updated profile!');
+            setLastAppliedEventTitle(selectedEventForModal.title);
             setSelectedEventForModal(null);
+            setShowConfirmation(true);
+            setApplyForm({ name: '', email: '', phoneNumber: '', department: '', year: '', paymentScreenshot: null, selectedEvents: [] });
             fetchData();
         } catch (err) {
+            console.error(err);
+            alert(err.response?.data?.message || 'Failed to apply.');
             setMessage(err.response?.data?.message || 'Failed to apply.');
         }
     };
@@ -105,10 +213,12 @@ export default function StudentDashboard({ searchQuery = '', notifEvent = null, 
             await axios.put('http://localhost:5000/api/student/profile', formData, {
                 headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' }
             });
-            setMessage('Profile updated successfully!');
+            alert('Profile updated successfully!');
             setShowEditModal(false);
             fetchData();
         } catch (err) {
+            console.error(err);
+            alert('Failed to update profile.');
             setMessage('Failed to update profile.');
         } finally {
             setEditLoading(false);
@@ -157,10 +267,13 @@ export default function StudentDashboard({ searchQuery = '', notifEvent = null, 
         if (isEventFinished(event)) return false;
         if (hasAppliedToEvent(event._id)) return false;
         const matchesSearch = event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            event.category.toLowerCase().includes(searchQuery.toLowerCase());
+            event.collegeName?.toLowerCase().includes(searchQuery.toLowerCase());
         const matchesCategory = selectedCategory === 'all' || event.category === selectedCategory;
-        return matchesSearch && matchesCategory;
+        const matchesSubCategory = selectedCategory !== 'Symposium' || selectedSubCategory === 'all' || event.subCategory === selectedSubCategory;
+        return matchesSearch && matchesCategory && matchesSubCategory;
     });
+
+    // REDUNDANT - Handled by CollegeProfile.jsx route
 
     return (
         <div style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
@@ -170,6 +283,54 @@ export default function StudentDashboard({ searchQuery = '', notifEvent = null, 
                     <Edit3 size={18} /> Edit My Details
                 </button>
             </div>
+
+            {/* College search results driven by the Header's search bar */}
+            {collegeResults.length > 0 && searchQuery && (
+                <div className="glass-card" style={{ padding: '1.5rem', marginBottom: '2rem' }}>
+                    <h3 className="outfit-font" style={{ fontSize: '1.1rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-secondary)' }}>
+                        <Building2 size={18} /> Colleges matching &ldquo;{searchQuery}&rdquo;
+                    </h3>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1rem' }}>
+                        {collegeResults.map(c => {
+                            const isFollowed = followingIds.has(c._id);
+                            const isLoadingThis = followLoading.has(c._id);
+                            return (
+                                <div key={c._id} className="glass-panel" style={{ padding: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', transition: 'all 0.2s' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, cursor: 'pointer' }} onClick={() => navigate(`/college/${c._id}`)}>
+                                        {c.profilePic ? (
+                                            <img src={`http://localhost:5000/${c.profilePic}`} style={{ width: '48px', height: '48px', borderRadius: '50%', objectFit: 'cover', border: isFollowed ? '2px solid #10b981' : '2px solid transparent' }} alt="College Logo" />
+                                        ) : (
+                                            <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'var(--bg-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: isFollowed ? '2px solid #10b981' : '2px solid var(--border-color)' }}>
+                                                <Building2 size={24} style={{ color: 'var(--text-tertiary)' }} />
+                                            </div>
+                                        )}
+                                        <div>
+                                            <div style={{ fontWeight: 600, fontSize: '1rem', color: 'var(--text-primary)' }}>{c.name}</div>
+                                            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                                                {isFollowed ? <span style={{ color: '#10b981', fontWeight: 600 }}>Followed</span> : 'Tap to view full profile'}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); handleFollowToggle(c._id); }}
+                                        disabled={isLoadingThis}
+                                        style={{
+                                            padding: '0.4rem 1rem', borderRadius: '9999px', fontSize: '0.85rem', fontWeight: 600,
+                                            cursor: isLoadingThis ? 'wait' : 'pointer', transition: 'all 0.3s',
+                                            border: isFollowed ? 'none' : '1.5px solid var(--accent-primary)',
+                                            background: isFollowed ? 'linear-gradient(135deg, #10b981, #34d399)' : 'transparent',
+                                            color: isFollowed ? 'white' : 'var(--accent-primary)',
+                                            minWidth: '90px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem'
+                                        }}
+                                    >
+                                        {isLoadingThis ? '...' : isFollowed ? 'Unfollow' : 'Follow'}
+                                    </button>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
 
             {/* ── Stats Cards ── */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem', marginBottom: '3rem' }}>
@@ -215,10 +376,10 @@ export default function StudentDashboard({ searchQuery = '', notifEvent = null, 
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                         <h2 className="outfit-font" style={{ fontSize: '1.5rem', color: 'var(--text-primary)', margin: 0 }}>Browse Categories</h2>
                         {selectedCategory !== 'all' && (
-                            <button onClick={() => setSelectedCategory('all')} className="btn btn-outline" style={{ padding: '0.25rem 0.75rem', fontSize: '0.8rem' }}>Clear Filter</button>
+                            <button onClick={() => { setSelectedCategory('all'); setSelectedSubCategory('all'); }} className="btn btn-outline" style={{ padding: '0.25rem 0.75rem', fontSize: '0.8rem' }}>Clear Filter</button>
                         )}
                     </div>
-                    <div className="category-icon-grid">
+                    <div className="category-icon-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
                         {Object.entries(CATEGORY_ICONS).map(([key, { icon: IconComp, color, label }]) => {
                             const count = events.filter(e => e.category === key && !isEventFinished(e) && !hasAppliedToEvent(e._id)).length;
                             const isSelected = selectedCategory === key;
@@ -235,12 +396,38 @@ export default function StudentDashboard({ searchQuery = '', notifEvent = null, 
                                     <div className="category-icon-circle" style={{ background: `${color}15`, borderColor: color, margin: '0 auto' }}>
                                         <IconComp size={28} style={{ color }} />
                                     </div>
-                                    <p style={{ fontWeight: 600, marginTop: '0.75rem', fontSize: '0.95rem', color: '#fff' }}>{label}</p>
+                                    <p style={{ fontWeight: 600, marginTop: '0.75rem', fontSize: '1.1rem', color: '#fff' }}>{label}</p>
                                     <p style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '0.8rem' }}>{count} event{count !== 1 ? 's' : ''}</p>
                                 </button>
                             );
                         })}
                     </div>
+
+                    {/* Subcategories for Symposium */}
+                    {selectedCategory === 'Symposium' && (
+                        <div className="animate-fade-in" style={{ marginTop: '1.5rem', padding: '1.5rem', background: 'var(--bg-tertiary)', borderRadius: '1rem', border: '1px solid var(--border-color)' }}>
+                            <h3 style={{ fontSize: '1rem', color: 'var(--text-secondary)', marginBottom: '1rem', textAlign: 'center' }}>Filter Symposium Events</h3>
+                            <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+                                <button
+                                    className={`btn ${selectedSubCategory === 'all' ? 'btn-primary' : 'btn-outline'}`}
+                                    onClick={() => setSelectedSubCategory('all')}
+                                    style={{ padding: '0.5rem 1.5rem', borderRadius: '9999px' }}
+                                >
+                                    All Symposiums
+                                </button>
+                                {Object.entries(SUBCATEGORY_ICONS).map(([key, { icon: IconComp, label }]) => (
+                                    <button
+                                        key={key}
+                                        className={`btn ${selectedSubCategory === key ? 'btn-primary' : 'btn-outline'}`}
+                                        onClick={() => setSelectedSubCategory(key)}
+                                        style={{ padding: '0.5rem 1.5rem', borderRadius: '9999px', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                                    >
+                                        <IconComp size={16} /> {label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
 
@@ -260,15 +447,32 @@ export default function StudentDashboard({ searchQuery = '', notifEvent = null, 
                             const IconComp = cat?.icon;
                             return (
                                 <div key={event._id} className="glass-card" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                                    <div style={{ height: '120px', background: cat?.bg || 'linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%)', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', padding: '1rem' }}>
-                                        <span style={{ background: 'rgba(255,255,255,0.2)', color: 'white', padding: '0.25rem 0.75rem', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: 600, backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                                    <div 
+                                        onClick={() => setSelectedEventForModal(event)}
+                                        style={{ 
+                                            height: '180px', 
+                                            background: event.posterUrl ? `url(http://localhost:5000/${event.posterUrl}) center/cover no-repeat` : (cat?.bg || CATEGORY_ICONS['Events'].bg), 
+                                            display: 'flex', 
+                                            alignItems: 'flex-end', 
+                                            justifyContent: 'space-between', 
+                                            padding: '1rem',
+                                            cursor: 'pointer',
+                                            transition: 'transform 0.3s ease'
+                                        }}
+                                        onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.02)'}
+                                        onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+                                    >
+                                        <span style={{ background: 'rgba(0,0,0,0.5)', color: 'white', padding: '0.25rem 0.75rem', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: 600, backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
                                             {IconComp && <IconComp size={14} />}
-                                            {event.category.toUpperCase()}
+                                            {event.category.toUpperCase()} {event.subCategory ? `- ${event.subCategory.toUpperCase()}` : ''}
                                         </span>
                                     </div>
                                     <div style={{ padding: '1.5rem', flex: 1, display: 'flex', flexDirection: 'column' }}>
                                         <h3 className="outfit-font" style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '0.5rem' }}>{event.title}</h3>
-                                        <p style={{ color: 'var(--accent-primary)', fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                                        <p 
+                                            onClick={() => navigate(`/college/${event.organizer?._id || event.organizer}`)}
+                                            style={{ color: 'var(--accent-primary)', fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.35rem', cursor: 'pointer', textDecoration: 'underline' }}
+                                        >
                                             <Building2 size={14} /> {event.collegeName || event.organizer?.name || 'Unknown College'}
                                         </p>
                                         <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: '1rem', flex: 1, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{event.description}</p>
@@ -276,7 +480,16 @@ export default function StudentDashboard({ searchQuery = '', notifEvent = null, 
                                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '1rem', fontSize: '0.8rem', color: 'var(--text-tertiary)' }}>
                                             <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}><Calendar size={14} /> {new Date(event.startDate).toLocaleDateString()}</span>
                                             <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}><IndianRupee size={14} /> ₹{event.entryFee}</span>
-                                            <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}><MapPin size={14} /> {event.address}</span>
+                                            {event.mapLink ? (
+                                                <div style={{ width: '100%', marginTop: '0.5rem' }}>
+                                                    <p style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', marginBottom: '0.25rem' }}>Location URL:</p>
+                                                    <a href={event.mapLink} target="_blank" rel="noopener noreferrer" style={{ display: 'block', fontSize: '0.8rem', color: 'var(--info)', wordBreak: 'break-all', textDecoration: 'underline' }}>
+                                                        {event.mapLink}
+                                                    </a>
+                                                </div>
+                                            ) : (
+                                                <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}><MapPin size={14} /> {event.address}</span>
+                                            )}
                                         </div>
 
                                         {/* Bus Routes */}
@@ -291,7 +504,7 @@ export default function StudentDashboard({ searchQuery = '', notifEvent = null, 
                                         )}
 
                                         <button onClick={() => setSelectedEventForModal(event)} className="btn btn-primary" style={{ width: '100%', justifyContent: 'center' }}>
-                                            Apply Now
+                                            Registration
                                         </button>
                                     </div>
                                 </div>
@@ -318,7 +531,7 @@ export default function StudentDashboard({ searchQuery = '', notifEvent = null, 
                                 <div key={app._id} className="glass-card" style={{ padding: '1.5rem' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
                                         {cat && (() => { const IC = cat.icon; return <IC size={16} style={{ color: cat.color }} />; })()}
-                                        <span style={{ background: `${cat?.color || 'var(--accent-primary)'}15`, color: cat?.color || 'var(--accent-primary)', padding: '0.2rem 0.6rem', borderRadius: '9999px', fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase' }}>{event.category}</span>
+                                        <span style={{ background: `${cat?.color || 'var(--accent-primary)'}15`, color: cat?.color || 'var(--accent-primary)', padding: '0.2rem 0.6rem', borderRadius: '9999px', fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase' }}>{event.category} {event.subCategory ? `- ${event.subCategory.toUpperCase()}` : ''}</span>
                                         <span style={{ marginLeft: 'auto', fontSize: '0.7rem', padding: '0.2rem 0.5rem', borderRadius: '9999px', fontWeight: 600, background: finished ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)', color: finished ? 'var(--error)' : 'var(--success)' }}>
                                             {finished ? 'Ended' : 'Ongoing'}
                                         </span>
@@ -352,54 +565,235 @@ export default function StudentDashboard({ searchQuery = '', notifEvent = null, 
             {/* ── Application Form Modal ── */}
             {selectedEventForModal && (
                 <div className="modal-overlay">
-                    <div className="glass-card modal-content" style={{ width: '100%', maxWidth: '500px', padding: '2rem', position: 'relative' }}>
-                        <button onClick={() => setSelectedEventForModal(null)} style={{ position: 'absolute', top: '1rem', right: '1rem', color: 'var(--text-secondary)' }}>
+                    <div className="google-form-modal modal-content" style={{ position: 'relative' }}>
+                        <button onClick={() => setSelectedEventForModal(null)} style={{ position: 'absolute', top: '1.5rem', right: '1.5rem', color: '#5f6368', zIndex: 10 }}>
                             <X size={24} />
                         </button>
-                        <h2 className="outfit-font" style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>Apply for {selectedEventForModal.title}</h2>
-                        <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                            <Building2 size={14} /> {selectedEventForModal.collegeName || selectedEventForModal.organizer?.name}
-                        </p>
 
-                        <form onSubmit={handleApply} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                        <div className="google-form-card" style={{ padding: 0 }}>
+                            <div className="google-form-header-stripe"></div>
+                            <div style={{ padding: '1.5rem 1.5rem 1rem 1.5rem' }}>
+                                <h1 className="google-form-title">{selectedEventForModal.title}</h1>
+                                <p style={{ color: '#202124', fontSize: '0.875rem', marginBottom: '0.5rem' }}>
+                                    {selectedEventForModal.collegeName || selectedEventForModal.organizer?.name}
+                                </p>
+                                <div style={{ fontSize: '0.75rem', color: '#5f6368', borderTop: '1px solid #dadce0', paddingTop: '1rem', marginTop: '1rem' }}>
+                                    * Indicates required question
+                                </div>
+                            </div>
+                        </div>
+                                  <form onSubmit={handleApply} style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
 
-                            {/* Student Info Review Section (Editable) */}
-                            {studentProfile && (
-                                <div style={{ background: 'var(--bg-tertiary)', padding: '1rem', borderRadius: '0.5rem', marginBottom: '0.5rem', border: '1px solid var(--border-color)' }}>
-                                    <h3 style={{ fontSize: '0.9rem', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.35rem', color: 'var(--accent-primary)' }}>
-                                        <User size={14} /> Verify & Update Applicant Details
-                                    </h3>
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                            {/* --- Structure: Basic Event Info (Required for all) --- */}
+                            <div className="google-form-card" style={{ borderLeft: '6px solid #673ab7' }}>
+                                <h3 className="google-form-section-title" style={{ borderBottom: 'none', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                    <FileText size={18} color="#673ab7" /> Event Overview
+                                </h3>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', fontSize: '0.85rem' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                        <Calendar size={14} color="#5f6368" /> <strong>Date:</strong> {new Date(selectedEventForModal.startDate).toLocaleDateString()}
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                        <Clock size={14} color="#5f6368" /> <strong>Time:</strong> {selectedEventForModal.startTime} - {selectedEventForModal.endTime}
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', gridColumn: '1 / -1' }}>
+                                        <MapPin size={14} color="#5f6368" /> <strong>Location:</strong> {selectedEventForModal.address}
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                        <Phone size={14} color="#5f6368" /> <strong>Coordinator:</strong> {selectedEventForModal.contactNumber || 'N/A'}
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                        <Mail size={14} color="#5f6368" /> <strong>Gmail:</strong> {selectedEventForModal.email || 'N/A'}
+                                    </div>
+                                </div>
+                                
+                                {selectedEventForModal.mapLink && (
+                                    <div style={{ marginTop: '1rem', padding: '1rem', background: '#f8f9fa', borderRadius: '8px', border: '1px solid #dadce0' }}>
+                                        <p style={{ fontSize: '0.75rem', color: '#5f6368', marginBottom: '0.5rem' }}>Google Maps Location:</p>
+                                        <a 
+                                            href={selectedEventForModal.mapLink}
+                                            target="_blank" 
+                                            rel="noopener noreferrer"
+                                            style={{ color: '#673ab7', fontSize: '0.85rem', wordBreak: 'break-all', textDecoration: 'underline' }}
+                                        >
+                                            {selectedEventForModal.mapLink}
+                                        </a>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* --- Structure: Applicant Details (Required for all) --- */}
+                            <div className="google-form-card">
+                                <h3 className="google-form-section-title">Step 1: Student Information</h3>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                                    <div>
+                                        <label className="google-form-label">Full Name *</label>
+                                        <input type="text" required className="google-form-input" placeholder="Enter your full name" value={applyForm.name} onChange={(e) => setApplyForm({ ...applyForm, name: e.target.value })} />
+                                    </div>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
                                         <div>
-                                            <label style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', marginBottom: '0.2rem', display: 'block' }}>Name</label>
-                                            <input type="text" className="input-field" style={{ padding: '0.4rem', fontSize: '0.85rem', marginBottom: 0 }} value={studentProfile.name || ''} onChange={(e) => setStudentProfile({ ...studentProfile, name: e.target.value })} />
+                                            <label className="google-form-label">Year *</label>
+                                            <input type="text" required className="google-form-input" placeholder="e.g. 1st Year, III Year" value={applyForm.year} onChange={(e) => setApplyForm({ ...applyForm, year: e.target.value })} />
                                         </div>
                                         <div>
-                                            <label style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', marginBottom: '0.2rem', display: 'block' }}>Email (Read Only)</label>
-                                            <input type="email" className="input-field" disabled style={{ padding: '0.4rem', fontSize: '0.85rem', marginBottom: 0, opacity: 0.7 }} value={studentProfile.email || ''} />
-                                        </div>
-                                        <div>
-                                            <label style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', marginBottom: '0.2rem', display: 'block' }}>College</label>
-                                            <input type="text" className="input-field" style={{ padding: '0.4rem', fontSize: '0.85rem', marginBottom: 0 }} value={studentProfile.college || ''} onChange={(e) => setStudentProfile({ ...studentProfile, college: e.target.value })} placeholder="Your College Name" />
-                                        </div>
-                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-                                            <div>
-                                                <label style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', marginBottom: '0.2rem', display: 'block' }}>Department</label>
-                                                <input type="text" className="input-field" style={{ padding: '0.4rem', fontSize: '0.85rem', marginBottom: 0 }} value={studentProfile.department || ''} onChange={(e) => setStudentProfile({ ...studentProfile, department: e.target.value })} placeholder="Dept" />
-                                            </div>
-                                            <div>
-                                                <label style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', marginBottom: '0.2rem', display: 'block' }}>Year</label>
-                                                <input type="text" className="input-field" style={{ padding: '0.4rem', fontSize: '0.85rem', marginBottom: 0 }} value={studentProfile.year || ''} onChange={(e) => setStudentProfile({ ...studentProfile, year: e.target.value })} placeholder="I/II/III/IV" />
-                                            </div>
+                                            <label className="google-form-label">Department *</label>
+                                            <input type="text" required className="google-form-input" placeholder="e.g. CSE, EEE" value={applyForm.department} onChange={(e) => setApplyForm({ ...applyForm, department: e.target.value })} />
                                         </div>
                                     </div>
-                                    <p style={{ fontSize: '0.75rem', color: 'var(--warning)', marginTop: '0.5rem', fontStyle: 'italic' }}>* Edits made here will be permanently saved to your profile when you submit.</p>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+                                        <div>
+                                            <label className="google-form-label">Gmail ID *</label>
+                                            <input type="email" required className="google-form-input" placeholder="Your answer" value={applyForm.email} onChange={(e) => setApplyForm({ ...applyForm, email: e.target.value })} />
+                                        </div>
+                                        <div>
+                                            <label className="google-form-label">Contact Number *</label>
+                                            <input type="text" required className="google-form-input" placeholder="Your answer" value={applyForm.phoneNumber} onChange={(e) => setApplyForm({ ...applyForm, phoneNumber: e.target.value })} />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            {/* --- Event Selection (Universal Check) --- */}
+                            {(selectedEventForModal.technicalEvents?.length > 0 || 
+                              selectedEventForModal.nonTechnicalEvents?.length > 0 || 
+                              selectedEventForModal.workshopEvents?.length > 0) && (
+                                <div className="google-form-card">
+                                    <h3 className="google-form-section-title" style={{ color: '#8b5cf6' }}>
+                                        {selectedEventForModal.category === 'Symposium' ? 'Step 2: Event Selection (Choose at least 2)' : 'Step 2: Activity Selection'}
+                                    </h3>
+                                    
+                                    {selectedEventForModal.technicalEvents?.length > 0 && (
+                                        <div style={{ marginBottom: '1.5rem' }}>
+                                            <p className="google-form-label" style={{ fontWeight: 600, color: '#6366f1' }}>
+                                                {selectedEventForModal.category === 'Symposium' ? '💻 Technical Events' : 
+                                                 selectedEventForModal.category === 'Sports' ? '🏆 Sports Categories' : '📝 Specific Activities'}
+                                            </p>
+                                            <p style={{ fontSize: '0.75rem', color: '#5f6368', marginBottom: '0.5rem' }}>Select the technical competitions you wish to participate in.</p>
+                                            <div className="google-form-checkbox-group">
+                                                {selectedEventForModal.technicalEvents.map(ev => (
+                                                    <label key={ev} className="google-form-check-item">
+                                                        <input 
+                                                            type="checkbox" 
+                                                            checked={applyForm.selectedEvents.includes(ev)} 
+                                                            onChange={() => {
+                                                                const isSelected = applyForm.selectedEvents.includes(ev);
+                                                                const next = isSelected ? applyForm.selectedEvents.filter(x => x !== ev) : [...applyForm.selectedEvents, ev];
+                                                                setApplyForm({ ...applyForm, selectedEvents: next });
+                                                            }} 
+                                                        />
+                                                        <span style={{ fontSize: '0.875rem' }}>{ev}</span>
+                                                    </label>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {selectedEventForModal.nonTechnicalEvents?.length > 0 && (
+                                        <div style={{ marginBottom: '1.5rem' }}>
+                                            <p className="google-form-label" style={{ fontWeight: 600, color: '#ec4899' }}>🎨 Non-Technical Events</p>
+                                            <p style={{ fontSize: '0.75rem', color: '#5f6368', marginBottom: '0.5rem' }}>Select the non-technical activities you wish to join.</p>
+                                            <div className="google-form-checkbox-group">
+                                                {selectedEventForModal.nonTechnicalEvents.map(ev => (
+                                                    <label key={ev} className="google-form-check-item">
+                                                        <input 
+                                                            type="checkbox" 
+                                                            checked={applyForm.selectedEvents.includes(ev)} 
+                                                            onChange={() => {
+                                                                const isSelected = applyForm.selectedEvents.includes(ev);
+                                                                const next = isSelected ? applyForm.selectedEvents.filter(x => x !== ev) : [...applyForm.selectedEvents, ev];
+                                                                setApplyForm({ ...applyForm, selectedEvents: next });
+                                                            }} 
+                                                        />
+                                                        <span style={{ fontSize: '0.875rem' }}>{ev}</span>
+                                                    </label>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {selectedEventForModal.workshopEvents?.length > 0 && (
+                                        <div>
+                                            <p className="google-form-label" style={{ fontWeight: 600, color: '#10b981' }}>🛠 Workshops</p>
+                                            <p style={{ fontSize: '0.75rem', color: '#5f6368', marginBottom: '0.5rem' }}>Select any workshops you plan to attend.</p>
+                                            <div className="google-form-checkbox-group">
+                                                {selectedEventForModal.workshopEvents.map(ev => (
+                                                    <label key={ev} className="google-form-check-item">
+                                                        <input 
+                                                            type="checkbox" 
+                                                            checked={applyForm.selectedEvents.includes(ev)} 
+                                                            onChange={() => {
+                                                                const isSelected = applyForm.selectedEvents.includes(ev);
+                                                                const next = isSelected ? applyForm.selectedEvents.filter(x => x !== ev) : [...applyForm.selectedEvents, ev];
+                                                                setApplyForm({ ...applyForm, selectedEvents: next });
+                                                            }} 
+                                                        />
+                                                        <span style={{ fontSize: '0.875rem' }}>{ev}</span>
+                                                    </label>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             )}
 
-                            <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
-                                <button type="button" onClick={() => setSelectedEventForModal(null)} className="btn btn-outline" style={{ flex: 1, justifyContent: 'center' }}>Cancel</button>
-                                <button type="submit" className="btn btn-primary" style={{ flex: 1, justifyContent: 'center' }}>Submit Application</button>
+                            {/* --- Structure 2: Sports --- */}
+                            {selectedEventForModal.category === 'Sports' && (
+                                <div className="google-form-card" style={{ borderLeft: '6px solid #f59e0b' }}>
+                                    <h3 className="google-form-section-title" style={{ color: '#f59e0b' }}>Step 2: Sports Participation</h3>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem', background: '#fff9eb', borderRadius: '8px', border: '1px solid #fee2e2' }}>
+                                        <Trophy size={32} color="#f59e0b" />
+                                        <div>
+                                            <p style={{ fontWeight: 600, fontSize: '0.9rem', margin: 0 }}>Tournament Entry</p>
+                                            <p style={{ fontSize: '0.75rem', color: '#92400e', margin: 0 }}>You are applying for a sports event. Please ensure you bring your specific sports kit/jersey as per college rules.</p>
+                                        </div>
+                                    </div>
+                                    <div style={{ marginTop: '1.5rem' }}>
+                                        <label className="google-form-label">Position / Event Specifics (Optional)</label>
+                                        <input type="text" className="google-form-input" placeholder="e.g. Defender, 100m Sprint, Captain" />
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* --- Structure 3: General Events --- */}
+                            {selectedEventForModal.category === 'Events' && (
+                                <div className="google-form-card" style={{ borderLeft: '6px solid #14b8a6' }}>
+                                    <h3 className="google-form-section-title" style={{ color: '#14b8a6' }}>Step 2: Event Details</h3>
+                                    <p style={{ fontSize: '0.85rem', color: '#5f6368' }}>You are applying for a general college event. Please follow the instructions provided by the event coordinators on the day.</p>
+                                </div>
+                            )}
+
+                            {/* --- Payment & Extra (Common) --- */}
+                            <div className="google-form-card">
+                                <h3 className="google-form-section-title">Final Step: Logistics & Payment</h3>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                                    
+                                    {selectedEventForModal.entryFee > 0 && (
+                                        <div style={{ background: '#f8f9fa', padding: '1rem', borderRadius: '8px', border: '1px solid #dadce0' }}>
+                                            <p style={{ fontWeight: 600, fontSize: '0.9rem', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                                                <IndianRupee size={16} /> Entry Fee: ₹{selectedEventForModal.entryFee}
+                                            </p>
+                                            <label className="google-form-label">Payment Screenshot *</label>
+                                            <p style={{ fontSize: '0.7rem', color: '#5f6368', marginBottom: '1rem' }}>Please upload the transaction confirmation screenshot for verification.</p>
+                                            <input type="file" required accept="image/*" className="google-form-input" style={{ border: 'none !important', paddingLeft: 0 }} onChange={(e) => setApplyForm({ ...applyForm, paymentScreenshot: e.target.files[0] })} />
+                                        </div>
+                                    )}
+                                    
+                                    {selectedEventForModal.entryFee <= 0 && (
+                                        <div>
+                                            <label className="google-form-label">Additional Payment Proof (If any)</label>
+                                            <input type="file" accept="image/*" className="google-form-input" style={{ border: 'none !important' }} onChange={(e) => setApplyForm({ ...applyForm, paymentScreenshot: e.target.files[0] })} />
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1.5rem 1.5rem 2rem 1.5rem' }}>
+                                <button type="submit" className="google-form-submit" disabled={selectedEventForModal.category === 'Symposium' && applyForm.selectedEvents.length < 2}>
+                                    Submit Registration
+                                </button>
+                                <button type="button" onClick={() => setSelectedEventForModal(null)} style={{ color: '#673ab7', fontSize: '0.875rem', fontWeight: 500 }}>
+                                    Cancel
+                                </button>
                             </div>
                         </form>
                     </div>
@@ -407,10 +801,11 @@ export default function StudentDashboard({ searchQuery = '', notifEvent = null, 
             )}
 
 
+
             {/* ── Edit Profile Modal ── */}
             {showEditModal && editProfile && (
                 <div className="modal-overlay">
-                    <div className="glass-card modal-content" style={{ width: '100%', maxWidth: '550px', padding: '2rem', position: 'relative', maxHeight: '90vh', overflowY: 'auto' }}>
+                    <div className="glass-card modal-content" style={{ padding: '1.5rem', position: 'relative' }}>
                         <button onClick={() => setShowEditModal(false)} style={{ position: 'absolute', top: '1rem', right: '1rem', color: 'var(--text-secondary)' }}>
                             <X size={24} />
                         </button>
@@ -511,6 +906,36 @@ export default function StudentDashboard({ searchQuery = '', notifEvent = null, 
                                 </button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+            {/* ── Registration Confirmation Modal ── */}
+            {showConfirmation && (
+                <div className="modal-overlay" style={{ zIndex: 2000 }}>
+                    <div className="glass-card animate-scale-in" style={{ width: '100%', maxWidth: '400px', padding: '2.5rem', textAlign: 'center', position: 'relative' }}>
+                        <div style={{ width: '80px', height: '80px', background: 'rgba(16, 185, 129, 0.1)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem' }}>
+                            <div style={{ width: '50px', height: '50px', background: '#10b981', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
+                                <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                            </div>
+                        </div>
+                        <h2 className="outfit-font" style={{ fontSize: '1.75rem', marginBottom: '0.75rem' }}>Registration Sent!</h2>
+                        <p style={{ color: 'var(--text-secondary)', lineHeight: '1.6', marginBottom: '2rem' }}>
+                            Your application for <strong>{lastAppliedEventTitle}</strong> has been submitted successfully. You'll receive a confirmation email shortly.
+                        </p>
+                        <button 
+                            onClick={() => {
+                                setShowConfirmation(false);
+                                setShowOngoing(true);
+                                setTimeout(() => {
+                                    const el = document.getElementById('applied-events-section');
+                                    if(el) el.scrollIntoView({ behavior: 'smooth' });
+                                }, 100);
+                            }} 
+                            className="btn btn-primary" 
+                            style={{ width: '100%', justifyContent: 'center', padding: '1rem' }}
+                        >
+                            View Application Status
+                        </button>
                     </div>
                 </div>
             )}

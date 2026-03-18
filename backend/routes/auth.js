@@ -12,13 +12,9 @@ router.post("/register", async (req, res) => {
 
         let user = await User.findOne({ email });
         if (user) {
-            if (user.isVerified) {
-                return res.status(400).json({ message: "User already exists" });
-            }
-            // User exists but unverified, update details and resend OTP
-        } else {
-            user = new User();
+            return res.status(400).json({ message: "User already exists" });
         }
+        user = new User();
 
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
@@ -27,25 +23,23 @@ router.post("/register", async (req, res) => {
         user.email = email;
         user.password = hashedPassword;
         user.role = role || "student";
-        user.isVerified = false;
-
-        // Generate 6-digit OTP
-        const otp = Math.floor(100000 + Math.random() * 900000).toString();
-        user.otp = otp;
-        user.otpExpires = Date.now() + 10 * 60 * 1000;
+        user.isVerified = true; // Auto-verify
 
         await user.save();
 
-        // Send OTP via email
-        const sendEmail = require("../utils/sendEmail");
-        await sendEmail({
-            to: user.email,
-            subject: "CampusConnect - Account Verification",
-            text: `Your OTP for account creation is: ${otp}. It is valid for 10 minutes.`,
-            html: `<p>Your OTP for account creation is: <strong style="font-size: 24px;">${otp}</strong>. It is valid for 10 minutes.</p>`
-        });
+        const payload = {
+            id: user.id,
+            role: user.role
+        };
 
-        res.status(200).json({ message: "OTP sent to email", requireOtp: true, email: user.email });
+        jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '7d' }, (err, token) => {
+            if (err) throw err;
+            res.status(200).json({ 
+                message: "Registration successful", 
+                token, 
+                user: { id: user.id, name: user.name, role: user.role } 
+            });
+        });
 
     } catch (err) {
         console.error(err.message);
@@ -73,11 +67,6 @@ router.post("/login", async (req, res) => {
             return res.status(400).json({ message: "Invalid Credentials" });
         }
 
-        // BACKWARD COMPATIBILITY: If isVerified is null/undefined, treat as true
-        if (user.isVerified === false) {
-            console.log("Login failed: User unverified:", user.email);
-            return res.status(400).json({ message: "Please verify your account first." });
-        }
 
         const payload = {
             id: user.id,

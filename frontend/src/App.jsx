@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Header from './components/Header';
 import Login from './pages/Login';
@@ -9,7 +9,9 @@ import StudentProfile from './pages/StudentProfile';
 import StudentApplications from './pages/StudentApplications';
 import CollegeDashboard from './pages/CollegeDashboard';
 import CollegeProfile from './pages/CollegeProfile';
+import StudentProfileView from './pages/StudentProfileView';
 import EventHistory from './pages/EventHistory';
+import FollowPage from './pages/FollowPage';
 
 const PrivateRoute = ({ children, roles }) => {
   const { user, isAuthenticated } = useAuth();
@@ -45,10 +47,14 @@ function AppRoutes() {
 
         <Route path="/student-dashboard" element={<PrivateRoute roles={['student']}><StudentDashboard searchQuery={searchQuery} selectedCategory={selectedCategory} notifEvent={notifEvent} clearNotifEvent={() => setNotifEvent(null)} /></PrivateRoute>} />
         <Route path="/student-profile" element={<PrivateRoute roles={['student']}><StudentProfile /></PrivateRoute>} />
+        <Route path="/student/:id" element={<PrivateRoute roles={['college', 'student']}><StudentProfileView /></PrivateRoute>} />
         <Route path="/student-applications" element={<PrivateRoute roles={['student']}><StudentApplications /></PrivateRoute>} />
 
-        <Route path="/college-dashboard" element={<PrivateRoute roles={['college']}><CollegeDashboard /></PrivateRoute>} />
+        <Route path="/college-dashboard" element={<PrivateRoute roles={['college']}><CollegeDashboard searchQuery={searchQuery} /></PrivateRoute>} />
         <Route path="/college-profile" element={<PrivateRoute roles={['college']}><CollegeProfile /></PrivateRoute>} />
+        <Route path="/college/:id" element={<PrivateRoute roles={['college', 'student']}><CollegeProfile /></PrivateRoute>} />
+
+        <Route path="/follow" element={<PrivateRoute roles={['college', 'student']}><FollowPage /></PrivateRoute>} />
 
         <Route path="/history" element={<PrivateRoute roles={['college', 'student']}><EventHistory /></PrivateRoute>} />
       </Routes>

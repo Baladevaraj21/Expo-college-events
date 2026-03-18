@@ -8,6 +8,10 @@ const UserSchema = new mongoose.Schema(
         role: { type: String, enum: ["college", "student"], default: "student" },
         profilePic: { type: String }, // NEW
 
+        // Social fields
+        followers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+        following: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+
         // OTP fields for login/registration verification
         otp: { type: String },
         otpExpires: { type: Date },
