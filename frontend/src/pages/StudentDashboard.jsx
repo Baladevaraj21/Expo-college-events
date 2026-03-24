@@ -40,7 +40,7 @@ export default function StudentDashboard({ notifEvent = null, clearNotifEvent })
     const [editLoading, setEditLoading] = useState(false);
 
     // Apply Form State
-    const [applyForm, setApplyForm] = useState({ name: '', email: '', phoneNumber: '', department: '', year: '', paymentScreenshot: null, selectedEvents: [] });
+    const [applyForm, setApplyForm] = useState({ name: '', email: '', phoneNumber: '', department: '', year: '', rollNo: '', regNo: '', collegeName: '', paymentScreenshot: null, selectedEvents: [] });
 
     useEffect(() => {
         if (selectedEventForModal && studentProfile) {
@@ -50,6 +50,9 @@ export default function StudentDashboard({ notifEvent = null, clearNotifEvent })
                 phoneNumber: studentProfile.mobile || '',
                 department: studentProfile.department || '',
                 year: studentProfile.year || '',
+                rollNo: studentProfile.rollNo || '',
+                regNo: studentProfile.regNo || '',
+                collegeName: studentProfile.college || '',
                 paymentScreenshot: null,
                 selectedEvents: []
             });
@@ -175,6 +178,9 @@ export default function StudentDashboard({ notifEvent = null, clearNotifEvent })
             formData.append('phoneNumber', applyForm.phoneNumber);
             formData.append('year', applyForm.year);
             formData.append('department', applyForm.department);
+            formData.append('collegeName', applyForm.collegeName);
+            formData.append('rollNo', applyForm.rollNo);
+            formData.append('regNo', applyForm.regNo);
             if (applyForm.paymentScreenshot) {
                 formData.append('paymentScreenshot', applyForm.paymentScreenshot);
             }
@@ -189,7 +195,7 @@ export default function StudentDashboard({ notifEvent = null, clearNotifEvent })
             setLastAppliedEventTitle(selectedEventForModal.title);
             setSelectedEventForModal(null);
             setShowConfirmation(true);
-            setApplyForm({ name: '', email: '', phoneNumber: '', department: '', year: '', paymentScreenshot: null, selectedEvents: [] });
+            setApplyForm({ name: '', email: '', phoneNumber: '', department: '', year: '', rollNo: '', regNo: '', collegeName: '', paymentScreenshot: null, selectedEvents: [] });
             fetchData();
         } catch (err) {
             console.error(err);
@@ -640,6 +646,22 @@ export default function StudentDashboard({ notifEvent = null, clearNotifEvent })
                                             <input type="text" required className="google-form-input" placeholder="e.g. CSE, EEE" value={applyForm.department} onChange={(e) => setApplyForm({ ...applyForm, department: e.target.value })} />
                                         </div>
                                     </div>
+
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+                                        <div>
+                                            <label className="google-form-label">Roll Number *</label>
+                                            <input type="text" required className="google-form-input" placeholder="Enter Roll No" value={applyForm.rollNo} onChange={(e) => setApplyForm({ ...applyForm, rollNo: e.target.value })} />
+                                        </div>
+                                        <div>
+                                            <label className="google-form-label">Registration Number *</label>
+                                            <input type="text" required className="google-form-input" placeholder="Enter Registration No" value={applyForm.regNo} onChange={(e) => setApplyForm({ ...applyForm, regNo: e.target.value })} />
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label className="google-form-label">College Name *</label>
+                                        <input type="text" required className="google-form-input" placeholder="Enter your college name" value={applyForm.collegeName} onChange={(e) => setApplyForm({ ...applyForm, collegeName: e.target.value })} />
+                                    </div>
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
                                         <div>
                                             <label className="google-form-label">Gmail ID *</label>
@@ -829,6 +851,14 @@ export default function StudentDashboard({ notifEvent = null, clearNotifEvent })
                                 <div className="input-group" style={{ marginBottom: 0 }}>
                                     <label className="input-label">Year</label>
                                     <input type="text" className="input-field" style={{ marginBottom: 0 }} value={editProfile.year || ''} onChange={e => setEditProfile({ ...editProfile, year: e.target.value })} placeholder="I/II/III/IV" />
+                                </div>
+                                <div className="input-group" style={{ marginBottom: 0 }}>
+                                    <label className="input-label">Roll Number</label>
+                                    <input type="text" className="input-field" style={{ marginBottom: 0 }} value={editProfile.rollNo || ''} onChange={e => setEditProfile({ ...editProfile, rollNo: e.target.value })} />
+                                </div>
+                                <div className="input-group" style={{ marginBottom: 0 }}>
+                                    <label className="input-label">Registration Number</label>
+                                    <input type="text" className="input-field" style={{ marginBottom: 0 }} value={editProfile.regNo || ''} onChange={e => setEditProfile({ ...editProfile, regNo: e.target.value })} />
                                 </div>
                                 <div className="input-group" style={{ marginBottom: 0 }}>
                                     <label className="input-label">Mobile</label>

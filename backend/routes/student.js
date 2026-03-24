@@ -39,8 +39,8 @@ router.put(
     upload.fields([{ name: "idCardFront", maxCount: 1 }, { name: "idCardBack", maxCount: 1 }, { name: "profilePic", maxCount: 1 }]),
     async (req, res) => {
         try {
-            const { college, department, year, place, age, gender, collegeAddress, mobile } = req.body;
-            const updateFields = { college, department, year, place, age, gender, collegeAddress, mobile };
+            const { college, department, year, rollNo, regNo, place, age, gender, collegeAddress, mobile } = req.body;
+            const updateFields = { college, department, year, rollNo, regNo, place, age, gender, collegeAddress, mobile };
 
             if (req.files) {
                 if (req.files.idCardFront) updateFields.idCardFront = req.files.idCardFront[0].path;
@@ -168,7 +168,7 @@ router.get("/events-by-category/:category", authenticate, authorize("student"), 
 // @desc    Apply to event
 router.post("/applications", authenticate, authorize("student"), upload.single("paymentScreenshot"), async (req, res) => {
     try {
-        const { eventId, name, year, department, email, phoneNumber } = req.body;
+        const { eventId, name, year, department, collegeName, rollNo, regNo, email, phoneNumber } = req.body;
 
         let existing = await Application.findOne({ event: eventId, student: req.user.id });
         if (existing) return res.status(400).json({ message: "Already applied" });
@@ -183,6 +183,9 @@ router.post("/applications", authenticate, authorize("student"), upload.single("
             name,
             year,
             department,
+            collegeName,
+            rollNo,
+            regNo,
             email,
             phoneNumber,
             selectedEvents: req.body.selectedEvents ? (typeof req.body.selectedEvents === 'string' ? JSON.parse(req.body.selectedEvents) : req.body.selectedEvents) : []

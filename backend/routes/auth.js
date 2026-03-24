@@ -10,7 +10,13 @@ router.post("/register", async (req, res) => {
     try {
         const { name, email, password, role } = req.body;
 
-        let user = await User.findOne({ email });
+        if (!email || !password) {
+            return res.status(400).json({ message: "email and password are required" });
+        }
+
+        const emailNormalized = email.toLowerCase().trim();
+
+        let user = await User.findOne({ email: emailNormalized });
         if (user) {
             return res.status(400).json({ message: "User already exists" });
         }
@@ -20,12 +26,13 @@ router.post("/register", async (req, res) => {
         const hashedPassword = await bcrypt.hash(password, salt);
 
         user.name = name;
-        user.email = email;
+        user.email = emailNormalized;
         user.password = hashedPassword;
         user.role = role || "student";
         user.isVerified = true; // Auto-verify
 
         await user.save();
+        console.log("User registered successfully:", emailNormalized);
 
         const payload = {
             id: user.id,
@@ -42,7 +49,7 @@ router.post("/register", async (req, res) => {
         });
 
     } catch (err) {
-        console.error(err.message);
+        console.error("Registration error:", err.message);
         res.status(500).send("Server error");
     }
 });
@@ -53,11 +60,18 @@ router.post("/login", async (req, res) => {
     try {
         const { identifier, password } = req.body;
 
+        if (!identifier || !password) {
+            return res.status(400).json({ message: "Identifier and password are required" });
+        }
+
+        const idNormalized = identifier.toLowerCase().trim();
+
         let user = await User.findOne({
-            $or: [{ email: identifier }, { mobile: identifier }]
+            $or: [{ email: idNormalized }, { mobile: idNormalized }]
         });
+        
         if (!user) {
-            console.log("Login failed: User not found for identifier:", identifier);
+            console.log("Login failed: User not found for identifier:", idNormalized);
             return res.status(400).json({ message: "Invalid Credentials" });
         }
 
@@ -79,7 +93,7 @@ router.post("/login", async (req, res) => {
         });
 
     } catch (err) {
-        console.error(err.message);
+        console.error("Login error:", err.message);
         res.status(500).send("Server error");
     }
 });
@@ -92,10 +106,17 @@ router.post("/verify-otp", async (req, res) => {
     try {
         const { identifier, otp } = req.body;
 
+        if (!identifier || !otp) {
+            return res.status(400).json({ message: "Identifier and OTP are required" });
+        }
+
+        const idNormalized = identifier.toLowerCase().trim();
+
         let user = await User.findOne({
-            $or: [{ email: identifier }, { mobile: identifier }]
+            $or: [{ email: idNormalized }, { mobile: idNormalized }]
         });
         if (!user) {
+            console.log("OTP verification failed: User not found for identifier:", idNormalized);
             return res.status(400).json({ message: "Invalid Credentials" });
         }
 

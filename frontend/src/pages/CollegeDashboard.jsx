@@ -708,7 +708,7 @@ export default function CollegeDashboard({ searchQuery: searchQueryProp = '' }) 
                                                     >
                                                         {app.name || app.student?.name}
                                                     </div>
-                                                    <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>🏫 {app.student?.college}</div>
+                                                     <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>🏫 {app.collegeName || app.student?.college}</div>
                                                     {app.degree && <div style={{ fontSize: '0.8rem', color: 'var(--text-tertiary)' }}>Degree: {app.degree} {app.year ? `(${app.year})` : ''}</div>}
                                                     <div style={{ fontSize: '0.75rem', marginTop: '0.25rem', padding: '0.2rem 0.5rem', background: 'var(--bg-secondary)', borderRadius: '4px', display: 'inline-block' }}>Total Apps: {app.studentApplyCount || 1}</div>
                                                 </td>
@@ -753,7 +753,7 @@ export default function CollegeDashboard({ searchQuery: searchQueryProp = '' }) 
                             <div>
                                 <h2 className="outfit-font" style={{ fontSize: '1.75rem', margin: 0 }}>{selectedApplication.name || selectedApplication.student?.name}</h2>
                                 <p style={{ color: 'var(--accent-primary)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.35rem', marginTop: '0.25rem' }}>
-                                    <Building2 size={16} /> {selectedApplication.student?.college}
+                                     <Building2 size={16} /> {selectedApplication.collegeName || selectedApplication.student?.college}
                                 </p>
                             </div>
                         </div>
@@ -767,6 +767,8 @@ export default function CollegeDashboard({ searchQuery: searchQueryProp = '' }) 
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', fontSize: '0.9rem' }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-tertiary)' }}>Department:</span> <span style={{ fontWeight: 500 }}>{selectedApplication.department || selectedApplication.student?.department || 'N/A'}</span></div>
                                     <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-tertiary)' }}>Year:</span> <span style={{ fontWeight: 500 }}>{selectedApplication.year || selectedApplication.student?.year || 'N/A'}</span></div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-tertiary)' }}>Roll No:</span> <span style={{ fontWeight: 500 }}>{selectedApplication.rollNo || selectedApplication.student?.rollNo || 'N/A'}</span></div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-tertiary)' }}>Reg No:</span> <span style={{ fontWeight: 500 }}>{selectedApplication.regNo || selectedApplication.student?.regNo || 'N/A'}</span></div>
                                     <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-tertiary)' }}>Age:</span> <span style={{ fontWeight: 500 }}>{selectedApplication.student?.age || 'N/A'}</span></div>
                                     <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-tertiary)' }}>Gender:</span> <span style={{ fontWeight: 500, textTransform: 'capitalize' }}>{selectedApplication.student?.gender || 'N/A'}</span></div>
                                 </div>

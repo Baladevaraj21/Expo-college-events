@@ -21,6 +21,8 @@ const UserSchema = new mongoose.Schema(
         college: { type: String },
         department: { type: String },
         year: { type: String },
+        rollNo: { type: String },
+        regNo: { type: String },
         place: { type: String },
         age: { type: Number },
         gender: { type: String },

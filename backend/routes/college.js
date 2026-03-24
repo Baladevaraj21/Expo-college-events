@@ -210,7 +210,7 @@ router.get("/applications", async (req, res) => {
         }
 
         const applications = await Application.find(queryObj)
-            .populate("student", "name email college department year mobile place age gender collegeAddress profilePic idCardFront idCardBack")
+            .populate("student", "name email college department year rollNo regNo mobile place age gender collegeAddress profilePic idCardFront idCardBack")
             .populate("event", "title type category")
             .sort({ createdAt: -1 });
 

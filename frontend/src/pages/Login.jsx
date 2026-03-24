@@ -17,7 +17,8 @@ export default function Login() {
         setLoading(true);
         setError('');
         try {
-            const res = await axios.post('http://localhost:5000/api/auth/login', { identifier, password });
+            const trimmedIdentifier = identifier.trim();
+            const res = await axios.post('http://localhost:5000/api/auth/login', { identifier: trimmedIdentifier, password });
             login(res.data.token, res.data.user);
             if (res.data.user.role === 'college') navigate('/college-dashboard');
             else navigate('/student-dashboard');
