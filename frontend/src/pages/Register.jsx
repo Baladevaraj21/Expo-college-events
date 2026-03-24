@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
-import { User, Mail, Lock, Building2, ArrowRight, AlertCircle } from 'lucide-react';
+import { User, Mail, Lock, Building2, ArrowRight, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export default function Register() {
     const { login } = useAuth();
     const [formData, setFormData] = useState({ name: '', email: '', password: '', role: 'student' });
+    const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const navigate = useNavigate();
@@ -16,7 +17,7 @@ export default function Register() {
         setLoading(true);
         setError('');
         try {
-            const res = await axios.post('http://localhost:5000/api/auth/register', formData);
+            const res = await axios.post(`${import.meta.env.VITE_API_URL}/api/auth/register`, formData);
             // Handle auto-login
             if (res.data.token && res.data.user) {
                 login(res.data.token, res.data.user);
@@ -117,15 +118,26 @@ export default function Register() {
                         <label className="input-label" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                             <Lock size={16} /> Password
                         </label>
-                        <input
-                            type="password"
-                            required
-                            className="input-field"
-                            placeholder="••••••••"
-                            minLength="6"
-                            value={formData.password}
-                            onChange={e => setFormData({ ...formData, password: e.target.value })}
-                        />
+                        <div style={{ position: 'relative' }}>
+                            <input
+                                type={showPassword ? "text" : "password"}
+                                required
+                                className="input-field"
+                                placeholder="••••••••"
+                                minLength="6"
+                                value={formData.password}
+                                onChange={e => setFormData({ ...formData, password: e.target.value })}
+                                style={{ paddingRight: '2.5rem' }}
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setShowPassword(!showPassword)}
+                                style={{ position: 'absolute', right: '0.8rem', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-tertiary)', cursor: 'pointer', outline: 'none', display: 'flex' }}
+                                title={showPassword ? "Hide password" : "Show password"}
+                            >
+                                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                            </button>
+                        </div>
                     </div>
 
                     <button

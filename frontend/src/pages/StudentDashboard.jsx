@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
-import { X, Monitor, Palette, Trophy, Wrench, Calendar, MapPin, Clock, IndianRupee, Building2, ChevronRight, User, Bus, Edit3, Star, MessageSquare, Send, FileText, LayoutList, Users } from 'lucide-react';
+import { X, Monitor, Palette, Trophy, Wrench, Calendar, MapPin, Clock, IndianRupee, Building2, ChevronRight, User, Bus, Edit3, Star, MessageSquare, Send, FileText, LayoutList, Users, History } from 'lucide-react';
 
 const CATEGORY_ICONS = {
     Symposium: { icon: Users, color: '#8b5cf6', bg: 'linear-gradient(135deg, #8b5cf6 0%, #a78bfa 100%)', label: 'Symposium' },
@@ -16,20 +16,26 @@ const SUBCATEGORY_ICONS = {
     Workshop: { icon: Wrench, color: '#10b981', label: 'Workshop' }
 };
 
-export default function StudentDashboard({ notifEvent = null, clearNotifEvent }) {
+export default function StudentDashboard({ searchQuery: searchQueryProp = '', notifEvent = null, clearNotifEvent }) {
     const { token, user, updateUser } = useAuth();
     const navigate = useNavigate();
     const [events, setEvents] = useState([]);
     const [loading, setLoading] = useState(true);
     const [message, setMessage] = useState('');
+    const [discoverColleges, setDiscoverColleges] = useState([]);
 
     // Filter & Category
-    const [searchQuery, setSearchQuery] = useState('');
+    const [searchQuery, setSearchQuery] = useState(searchQueryProp);
     const [selectedCategory, setSelectedCategory] = useState('all');
     const [selectedSubCategory, setSelectedSubCategory] = useState('all');
 
+    useEffect(() => {
+        setSearchQuery(searchQueryProp);
+    }, [searchQueryProp]);
+
     const [showOngoing, setShowOngoing] = useState(false);
     const [selectedEventForModal, setSelectedEventForModal] = useState(null);
+    const [selectedEventDetailsModal, setSelectedEventDetailsModal] = useState(null);
     const [studentProfile, setStudentProfile] = useState(null);
     const [showConfirmation, setShowConfirmation] = useState(false);
     const [lastAppliedEventTitle, setLastAppliedEventTitle] = useState('');
@@ -72,9 +78,9 @@ export default function StudentDashboard({ notifEvent = null, clearNotifEvent })
             return;
         }
         try {
-            const res = await axios.get(`http://localhost:5000/api/student/search?query=${searchCollegeQuery}`, { headers: { Authorization: `Bearer ${token}` } });
+            const res = await axios.get(`${import.meta.env.VITE_API_URL}/api/student/search?query=${searchCollegeQuery}`, { headers: { Authorization: `Bearer ${token}` } });
             setCollegeResults(res.data);
-        } catch(err) { console.error(err) }
+        } catch (err) { console.error(err) }
     };
 
     useEffect(() => {
@@ -96,13 +102,13 @@ export default function StudentDashboard({ notifEvent = null, clearNotifEvent })
         try {
             const isFollowing = followingIds.has(collegeId);
             if (isFollowing) {
-                const res = await axios.delete(`http://localhost:5000/api/student/unfollow/${collegeId}`, { headers: { Authorization: `Bearer ${token}` } });
+                const res = await axios.delete(`${import.meta.env.VITE_API_URL}/api/student/unfollow/${collegeId}`, { headers: { Authorization: `Bearer ${token}` } });
                 if (res.data.user) updateUser(res.data.user);
             } else {
-                const res = await axios.post(`http://localhost:5000/api/student/follow/${collegeId}`, {}, { headers: { Authorization: `Bearer ${token}` } });
+                const res = await axios.post(`${import.meta.env.VITE_API_URL}/api/student/follow/${collegeId}`, {}, { headers: { Authorization: `Bearer ${token}` } });
                 if (res.data.user) updateUser(res.data.user);
             }
-        } catch(err) {
+        } catch (err) {
             console.error(err);
         } finally {
             setFollowLoading(prev => { const next = new Set(prev); next.delete(collegeId); return next; });
@@ -123,21 +129,21 @@ export default function StudentDashboard({ notifEvent = null, clearNotifEvent })
 
     const fetchData = async () => {
         try {
-            const eventsRes = await axios.get('http://localhost:5000/api/student/events', { headers: { Authorization: `Bearer ${token}` } });
+            const eventsRes = await axios.get(`${import.meta.env.VITE_API_URL}/api/student/events`, { headers: { Authorization: `Bearer ${token}` } });
             setEvents(eventsRes.data);
         } catch (err) {
             console.error("Failed to fetch events", err);
         }
 
         try {
-            const profileRes = await axios.get('http://localhost:5000/api/student/profile', { headers: { Authorization: `Bearer ${token}` } });
+            const profileRes = await axios.get(`${import.meta.env.VITE_API_URL}/api/student/profile`, { headers: { Authorization: `Bearer ${token}` } });
             setStudentProfile(profileRes.data);
         } catch (err) {
             console.error("Failed to fetch profile", err);
         }
 
         try {
-            const appsRes = await axios.get('http://localhost:5000/api/student/my-applications', { headers: { Authorization: `Bearer ${token}` } });
+            const appsRes = await axios.get(`${import.meta.env.VITE_API_URL}/api/student/my-applications`, { headers: { Authorization: `Bearer ${token}` } });
             setMyApplications(appsRes.data);
         } catch (err) {
             console.error("Failed to fetch applications", err);
@@ -145,11 +151,19 @@ export default function StudentDashboard({ notifEvent = null, clearNotifEvent })
 
         // Fetch currently followed colleges to populate followingIds
         try {
-            const followRes = await axios.get('http://localhost:5000/api/student/following', { headers: { Authorization: `Bearer ${token}` } });
+            const followRes = await axios.get(`${import.meta.env.VITE_API_URL}/api/student/following`, { headers: { Authorization: `Bearer ${token}` } });
             const ids = new Set(followRes.data.map(c => c._id));
             setFollowingIds(ids);
         } catch (err) {
             console.error("Failed to fetch following list", err);
+        }
+
+        // Fetch discover colleges
+        try {
+            const discoverRes = await axios.get(`${import.meta.env.VITE_API_URL}/api/college/search`, { headers: { Authorization: `Bearer ${token}` } });
+            setDiscoverColleges(discoverRes.data);
+        } catch (err) {
+            console.error("Failed to fetch discover colleges", err);
         }
 
         setLoading(false);
@@ -186,8 +200,8 @@ export default function StudentDashboard({ notifEvent = null, clearNotifEvent })
             }
             formData.append('selectedEvents', JSON.stringify(applyForm.selectedEvents));
 
-            await axios.post('http://localhost:5000/api/student/applications', formData, {
-                headers: { 
+            await axios.post(`${import.meta.env.VITE_API_URL}/api/student/applications`, formData, {
+                headers: {
                     Authorization: `Bearer ${token}`,
                     'Content-Type': 'multipart/form-data'
                 }
@@ -216,7 +230,7 @@ export default function StudentDashboard({ notifEvent = null, clearNotifEvent })
                     formData.append(key, editProfile[key] || '');
                 }
             });
-            await axios.put('http://localhost:5000/api/student/profile', formData, {
+            await axios.put(`${import.meta.env.VITE_API_URL}/api/student/profile`, formData, {
                 headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' }
             });
             alert('Profile updated successfully!');
@@ -235,7 +249,7 @@ export default function StudentDashboard({ notifEvent = null, clearNotifEvent })
         e.preventDefault();
         setFeedbackLoading(true);
         try {
-            await axios.post('http://localhost:5000/api/student/feedback', {
+            await axios.post(`${import.meta.env.VITE_API_URL}/api/student/feedback`, {
                 eventId: feedbackModal._id,
                 rating: feedbackRating,
                 comment: feedbackComment
@@ -285,9 +299,14 @@ export default function StudentDashboard({ notifEvent = null, clearNotifEvent })
         <div style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '1rem' }}>
                 <h1 className="outfit-font" style={{ fontSize: '2.5rem', color: 'var(--accent-primary)' }}>Student Dashboard</h1>
-                <button onClick={openEditModal} className="btn btn-outline" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <Edit3 size={18} /> Edit My Details
-                </button>
+                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                    <button onClick={() => navigate('/history')} className="btn btn-outline" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(99, 102, 241, 0.05)', borderColor: 'var(--accent-secondary)' }}>
+                        <History size={18} /> Event History
+                    </button>
+                    <button onClick={openEditModal} className="btn btn-outline" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <Edit3 size={18} /> Edit My Details
+                    </button>
+                </div>
             </div>
 
             {/* College search results driven by the Header's search bar */}
@@ -304,7 +323,7 @@ export default function StudentDashboard({ notifEvent = null, clearNotifEvent })
                                 <div key={c._id} className="glass-panel" style={{ padding: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', transition: 'all 0.2s' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, cursor: 'pointer' }} onClick={() => navigate(`/college/${c._id}`)}>
                                         {c.profilePic ? (
-                                            <img src={`http://localhost:5000/${c.profilePic}`} style={{ width: '48px', height: '48px', borderRadius: '50%', objectFit: 'cover', border: isFollowed ? '2px solid #10b981' : '2px solid transparent' }} alt="College Logo" />
+                                            <img src={`${import.meta.env.VITE_API_URL}/${c.profilePic}`} style={{ width: '48px', height: '48px', borderRadius: '50%', objectFit: 'cover', border: isFollowed ? '2px solid #10b981' : '2px solid transparent' }} alt="College Logo" />
                                         ) : (
                                             <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'var(--bg-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: isFollowed ? '2px solid #10b981' : '2px solid var(--border-color)' }}>
                                                 <Building2 size={24} style={{ color: 'var(--text-tertiary)' }} />
@@ -338,16 +357,61 @@ export default function StudentDashboard({ notifEvent = null, clearNotifEvent })
                 </div>
             )}
 
+            {/* Discover Colleges - Displayed ONLY when NOT searching */}
+            {!searchQuery && discoverColleges.length > 0 && (
+                <div style={{ marginBottom: '3rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.5rem' }}>
+                        <Building2 size={24} style={{ color: 'var(--accent-primary)' }} />
+                        <h2 className="outfit-font" style={{ fontSize: '1.75rem', margin: 0 }}>Discover Colleges to Follow</h2>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1.5rem' }}>
+                        {discoverColleges.filter(c => c._id !== user?._id).slice(0, 6).map(c => {
+                            const isFollowed = followingIds.has(c._id);
+                            const isLoadingThis = followLoading.has(c._id);
+                            return (
+                                <div key={c._id} className="glass-card" style={{ padding: '1.5rem', display: 'flex', alignItems: 'center', gap: '1rem', transition: 'all 0.3s' }}>
+                                    {c.profilePic ? (
+                                        <img src={`${import.meta.env.VITE_API_URL}/${c.profilePic}`} style={{ width: '48px', height: '48px', borderRadius: '50%', objectFit: 'cover', border: isFollowed ? '2px solid #10b981' : '2px solid transparent', transition: 'border-color 0.3s' }} alt="College Logo" />
+                                    ) : (
+                                        <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'var(--bg-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: isFollowed ? '2px solid #10b981' : '2px solid var(--border-color)', transition: 'border-color 0.3s', color: 'var(--text-secondary)' }}>
+                                            <Building2 size={24} />
+                                        </div>
+                                    )}
+                                    <div style={{ flex: 1 }}>
+                                        <span onClick={() => navigate(`/college/${c._id}`)} style={{ fontWeight: 700, fontSize: '1.05rem', display: 'block', color: 'var(--text-primary)', cursor: 'pointer' }} className="hover-underline">{c.name}</span>
+                                        {isFollowed && <span style={{ fontSize: '0.75rem', color: '#10b981', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.2rem' }}>Followed</span>}
+                                    </div>
+                                    <button
+                                        onClick={() => handleFollowToggle(c._id)}
+                                        disabled={isLoadingThis}
+                                        style={{
+                                            padding: '0.5rem 1.25rem', borderRadius: '9999px', fontSize: '0.875rem', fontWeight: 600,
+                                            cursor: isLoadingThis ? 'wait' : 'pointer', transition: 'all 0.3s', border: 'none',
+                                            background: isFollowed ? 'linear-gradient(135deg, #10b981, #34d399)' : 'var(--bg-tertiary)',
+                                            color: isFollowed ? 'white' : 'var(--text-primary)', minWidth: '100px',
+                                            boxShadow: isFollowed ? '0 4px 12px rgba(16,185,129,0.4)' : 'none',
+                                            border: isFollowed ? 'none' : '1px solid var(--border-color)'
+                                        }}
+                                    >
+                                        {isLoadingThis ? '...' : isFollowed ? 'Unfollow' : 'Follow'}
+                                    </button>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+
             {/* ── Stats Cards ── */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem', marginBottom: '3rem' }}>
-                <div className="glass-card animate-fade-in" style={{ padding: '2rem' }}>
+                <div className="glass-card animate-fade-in" style={{ padding: '2rem', background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%)', border: '1px solid rgba(99, 102, 241, 0.2)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <h3 className="outfit-font" style={{ fontSize: '1.25rem', color: 'var(--text-secondary)' }}>Total Active Events</h3>
                         <div style={{ display: 'flex', alignItems: 'center', color: 'var(--accent-primary)' }}>
                             <LayoutList size={24} />
                         </div>
                     </div>
-                    <p style={{ fontSize: '3rem', fontWeight: 700, marginTop: '0.5rem' }}>{events.filter(e => !isEventFinished(e) && !hasAppliedToEvent(e._id)).length}</p>
+                    <p style={{ fontSize: '3rem', fontWeight: 700, marginTop: '0.5rem', color: 'var(--accent-primary)' }}>{events.filter(e => !isEventFinished(e) && !hasAppliedToEvent(e._id)).length}</p>
                 </div>
                 <div
                     className="glass-card animate-fade-in animate-delay-1"
@@ -358,10 +422,13 @@ export default function StudentDashboard({ notifEvent = null, clearNotifEvent })
                     style={{
                         padding: '2rem',
                         cursor: 'pointer',
-                        transition: 'all 0.3s ease'
+                        transition: 'all 0.3s ease',
+                        background: showOngoing ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(52, 211, 153, 0.15) 100%)' : 'linear-gradient(135deg, rgba(16, 185, 129, 0.05) 0%, rgba(52, 211, 153, 0.05) 100%)',
+                        border: showOngoing ? '2px solid var(--success)' : '1px solid rgba(16, 185, 129, 0.2)',
+                        transform: showOngoing ? 'scale(1.02)' : 'scale(1)',
                     }}
-                    onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.03)'; e.currentTarget.style.boxShadow = '0 8px 32px rgba(99, 102, 241, 0.15)'; }}
-                    onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = ''; }}
+                    onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.03)'; e.currentTarget.style.boxShadow = '0 8px 32px rgba(16, 185, 129, 0.15)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.transform = showOngoing ? 'scale(1.02)' : 'scale(1)'; e.currentTarget.style.boxShadow = ''; }}
                 >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <h3 className="outfit-font" style={{ fontSize: '1.25rem', color: 'var(--text-secondary)' }}>Ongoing Applications</h3>
@@ -453,14 +520,14 @@ export default function StudentDashboard({ notifEvent = null, clearNotifEvent })
                             const IconComp = cat?.icon;
                             return (
                                 <div key={event._id} className="glass-card" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                                    <div 
-                                        onClick={() => setSelectedEventForModal(event)}
-                                        style={{ 
-                                            height: '180px', 
-                                            background: event.posterUrl ? `url(http://localhost:5000/${event.posterUrl}) center/cover no-repeat` : (cat?.bg || CATEGORY_ICONS['Events'].bg), 
-                                            display: 'flex', 
-                                            alignItems: 'flex-end', 
-                                            justifyContent: 'space-between', 
+                                    <div
+                                        onClick={() => setSelectedEventDetailsModal(event)}
+                                        style={{
+                                            height: '180px',
+                                            background: event.posterUrl ? `url(${import.meta.env.VITE_API_URL}/${event.posterUrl}) center/cover no-repeat` : (cat?.bg || CATEGORY_ICONS['Events'].bg),
+                                            display: 'flex',
+                                            alignItems: 'flex-end',
+                                            justifyContent: 'space-between',
                                             padding: '1rem',
                                             cursor: 'pointer',
                                             transition: 'transform 0.3s ease'
@@ -475,7 +542,7 @@ export default function StudentDashboard({ notifEvent = null, clearNotifEvent })
                                     </div>
                                     <div style={{ padding: '1.5rem', flex: 1, display: 'flex', flexDirection: 'column' }}>
                                         <h3 className="outfit-font" style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '0.5rem' }}>{event.title}</h3>
-                                        <p 
+                                        <p
                                             onClick={() => navigate(`/college/${event.organizer?._id || event.organizer}`)}
                                             style={{ color: 'var(--accent-primary)', fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.35rem', cursor: 'pointer', textDecoration: 'underline' }}
                                         >
@@ -568,9 +635,58 @@ export default function StudentDashboard({ notifEvent = null, clearNotifEvent })
                 </div>
             )}
 
+            {/* ── Event Details Modal (Shows full poster) ── */}
+            {selectedEventDetailsModal && (
+                <div className="modal-overlay" style={{ zIndex: 1000, padding: '1rem' }}>
+                    <div className="glass-card modal-content" style={{ maxWidth: '800px', width: '100%', maxHeight: '90vh', overflowY: 'auto', position: 'relative', padding: 0 }}>
+                        <button onClick={() => setSelectedEventDetailsModal(null)} style={{ position: 'absolute', top: '1rem', right: '1rem', color: '#5f6368', background: 'white', borderRadius: '50%', padding: '0.2rem', zIndex: 10, cursor: 'pointer', border: 'none', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}>
+                            <X size={24} />
+                        </button>
+                        {selectedEventDetailsModal.posterUrl ? (
+                            <img src={`${import.meta.env.VITE_API_URL}/${selectedEventDetailsModal.posterUrl}`} alt="Event Poster" style={{ width: '100%', maxHeight: '400px', objectFit: 'contain', background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-color)' }} />
+                        ) : (
+                            <div style={{ padding: '3rem', background: CATEGORY_ICONS[selectedEventDetailsModal.category]?.bg || 'var(--accent-primary)', color: 'white', textAlign: 'center' }}>
+                                <h1 style={{ fontSize: '2rem', margin: 0 }}>{selectedEventDetailsModal.title}</h1>
+                            </div>
+                        )}
+                        <div style={{ padding: '2rem' }}>
+                            <h2 className="outfit-font" style={{ fontSize: '2rem', marginBottom: '0.5rem', color: 'var(--text-primary)' }}>{selectedEventDetailsModal.title}</h2>
+                            <p style={{ color: 'var(--accent-primary)', fontSize: '1.1rem', fontWeight: 600, marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.35rem', cursor: 'pointer' }} onClick={() => { setSelectedEventDetailsModal(null); navigate(`/college/${selectedEventDetailsModal.organizer?._id || selectedEventDetailsModal.organizer}`); }}>
+                                <Building2 size={18} /> {selectedEventDetailsModal.collegeName || selectedEventDetailsModal.organizer?.name || 'Unknown College'}
+                            </p>
+
+                            <p style={{ color: 'var(--text-secondary)', fontSize: '1rem', lineHeight: '1.6', marginBottom: '2rem', whiteSpace: 'pre-line' }}>{selectedEventDetailsModal.description}</p>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem', marginBottom: '2rem', background: 'var(--bg-tertiary)', padding: '1.5rem', borderRadius: '1rem' }}>
+                                <div>
+                                    <strong style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>DATE & TIME</strong>
+                                    <div style={{ color: 'var(--text-primary)', fontWeight: 500, marginTop: '0.25rem' }}>{new Date(selectedEventDetailsModal.startDate).toLocaleDateString()} at {selectedEventDetailsModal.startTime}</div>
+                                </div>
+                                <div>
+                                    <strong style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>ENTRY FEE</strong>
+                                    <div style={{ color: 'var(--text-primary)', fontWeight: 500, marginTop: '0.25rem' }}>₹{selectedEventDetailsModal.entryFee || 0}</div>
+                                </div>
+                                <div>
+                                    <strong style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>LOCATION</strong>
+                                    <div style={{ color: 'var(--text-primary)', fontWeight: 500, marginTop: '0.25rem' }}>{selectedEventDetailsModal.address}</div>
+                                </div>
+                                <div>
+                                    <strong style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>LAST DATE TO APPLY</strong>
+                                    <div style={{ color: 'var(--error)', fontWeight: 600, marginTop: '0.25rem' }}>{new Date(selectedEventDetailsModal.endDate).toLocaleDateString()}</div>
+                                </div>
+                            </div>
+
+                            <button onClick={() => { setSelectedEventForModal(selectedEventDetailsModal); setSelectedEventDetailsModal(null); }} className="btn btn-primary" style={{ width: '100%', padding: '1rem', fontSize: '1.1rem', justifyContent: 'center', display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 8px 25px rgba(99,102,241,0.3)' }}>
+                                <FileText size={20} /> Proceed to Registration Form
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* ── Application Form Modal ── */}
             {selectedEventForModal && (
-                <div className="modal-overlay">
+                <div className="modal-overlay" style={{ zIndex: 1050 }}>
                     <div className="google-form-modal modal-content" style={{ position: 'relative' }}>
                         <button onClick={() => setSelectedEventForModal(null)} style={{ position: 'absolute', top: '1.5rem', right: '1.5rem', color: '#5f6368', zIndex: 10 }}>
                             <X size={24} />
@@ -588,7 +704,7 @@ export default function StudentDashboard({ notifEvent = null, clearNotifEvent })
                                 </div>
                             </div>
                         </div>
-                                  <form onSubmit={handleApply} style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
+                        <form onSubmit={handleApply} style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
 
                             {/* --- Structure: Basic Event Info (Required for all) --- */}
                             <div className="google-form-card" style={{ borderLeft: '6px solid #673ab7' }}>
@@ -612,13 +728,13 @@ export default function StudentDashboard({ notifEvent = null, clearNotifEvent })
                                         <Mail size={14} color="#5f6368" /> <strong>Gmail:</strong> {selectedEventForModal.email || 'N/A'}
                                     </div>
                                 </div>
-                                
+
                                 {selectedEventForModal.mapLink && (
                                     <div style={{ marginTop: '1rem', padding: '1rem', background: '#f8f9fa', borderRadius: '8px', border: '1px solid #dadce0' }}>
                                         <p style={{ fontSize: '0.75rem', color: '#5f6368', marginBottom: '0.5rem' }}>Google Maps Location:</p>
-                                        <a 
+                                        <a
                                             href={selectedEventForModal.mapLink}
-                                            target="_blank" 
+                                            target="_blank"
                                             rel="noopener noreferrer"
                                             style={{ color: '#673ab7', fontSize: '0.85rem', wordBreak: 'break-all', textDecoration: 'underline' }}
                                         >
@@ -674,89 +790,89 @@ export default function StudentDashboard({ notifEvent = null, clearNotifEvent })
                                     </div>
                                 </div>
                             </div>
-                            
+
                             {/* --- Event Selection (Universal Check) --- */}
-                            {(selectedEventForModal.technicalEvents?.length > 0 || 
-                              selectedEventForModal.nonTechnicalEvents?.length > 0 || 
-                              selectedEventForModal.workshopEvents?.length > 0) && (
-                                <div className="google-form-card">
-                                    <h3 className="google-form-section-title" style={{ color: '#8b5cf6' }}>
-                                        {selectedEventForModal.category === 'Symposium' ? 'Step 2: Event Selection (Choose at least 2)' : 'Step 2: Activity Selection'}
-                                    </h3>
-                                    
-                                    {selectedEventForModal.technicalEvents?.length > 0 && (
-                                        <div style={{ marginBottom: '1.5rem' }}>
-                                            <p className="google-form-label" style={{ fontWeight: 600, color: '#6366f1' }}>
-                                                {selectedEventForModal.category === 'Symposium' ? '💻 Technical Events' : 
-                                                 selectedEventForModal.category === 'Sports' ? '🏆 Sports Categories' : '📝 Specific Activities'}
-                                            </p>
-                                            <p style={{ fontSize: '0.75rem', color: '#5f6368', marginBottom: '0.5rem' }}>Select the technical competitions you wish to participate in.</p>
-                                            <div className="google-form-checkbox-group">
-                                                {selectedEventForModal.technicalEvents.map(ev => (
-                                                    <label key={ev} className="google-form-check-item">
-                                                        <input 
-                                                            type="checkbox" 
-                                                            checked={applyForm.selectedEvents.includes(ev)} 
-                                                            onChange={() => {
-                                                                const isSelected = applyForm.selectedEvents.includes(ev);
-                                                                const next = isSelected ? applyForm.selectedEvents.filter(x => x !== ev) : [...applyForm.selectedEvents, ev];
-                                                                setApplyForm({ ...applyForm, selectedEvents: next });
-                                                            }} 
-                                                        />
-                                                        <span style={{ fontSize: '0.875rem' }}>{ev}</span>
-                                                    </label>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
+                            {(selectedEventForModal.technicalEvents?.length > 0 ||
+                                selectedEventForModal.nonTechnicalEvents?.length > 0 ||
+                                selectedEventForModal.workshopEvents?.length > 0) && (
+                                    <div className="google-form-card">
+                                        <h3 className="google-form-section-title" style={{ color: '#8b5cf6' }}>
+                                            {selectedEventForModal.category === 'Symposium' ? 'Step 2: Event Selection (Choose at least 2)' : 'Step 2: Activity Selection'}
+                                        </h3>
 
-                                    {selectedEventForModal.nonTechnicalEvents?.length > 0 && (
-                                        <div style={{ marginBottom: '1.5rem' }}>
-                                            <p className="google-form-label" style={{ fontWeight: 600, color: '#ec4899' }}>🎨 Non-Technical Events</p>
-                                            <p style={{ fontSize: '0.75rem', color: '#5f6368', marginBottom: '0.5rem' }}>Select the non-technical activities you wish to join.</p>
-                                            <div className="google-form-checkbox-group">
-                                                {selectedEventForModal.nonTechnicalEvents.map(ev => (
-                                                    <label key={ev} className="google-form-check-item">
-                                                        <input 
-                                                            type="checkbox" 
-                                                            checked={applyForm.selectedEvents.includes(ev)} 
-                                                            onChange={() => {
-                                                                const isSelected = applyForm.selectedEvents.includes(ev);
-                                                                const next = isSelected ? applyForm.selectedEvents.filter(x => x !== ev) : [...applyForm.selectedEvents, ev];
-                                                                setApplyForm({ ...applyForm, selectedEvents: next });
-                                                            }} 
-                                                        />
-                                                        <span style={{ fontSize: '0.875rem' }}>{ev}</span>
-                                                    </label>
-                                                ))}
+                                        {selectedEventForModal.technicalEvents?.length > 0 && (
+                                            <div style={{ marginBottom: '1.5rem' }}>
+                                                <p className="google-form-label" style={{ fontWeight: 600, color: '#6366f1' }}>
+                                                    {selectedEventForModal.category === 'Symposium' ? '💻 Technical Events' :
+                                                        selectedEventForModal.category === 'Sports' ? '🏆 Sports Categories' : '📝 Specific Activities'}
+                                                </p>
+                                                <p style={{ fontSize: '0.75rem', color: '#5f6368', marginBottom: '0.5rem' }}>Select the technical competitions you wish to participate in.</p>
+                                                <div className="google-form-checkbox-group">
+                                                    {selectedEventForModal.technicalEvents.map(ev => (
+                                                        <label key={ev} className="google-form-check-item">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={applyForm.selectedEvents.includes(ev)}
+                                                                onChange={() => {
+                                                                    const isSelected = applyForm.selectedEvents.includes(ev);
+                                                                    const next = isSelected ? applyForm.selectedEvents.filter(x => x !== ev) : [...applyForm.selectedEvents, ev];
+                                                                    setApplyForm({ ...applyForm, selectedEvents: next });
+                                                                }}
+                                                            />
+                                                            <span style={{ fontSize: '0.875rem' }}>{ev}</span>
+                                                        </label>
+                                                    ))}
+                                                </div>
                                             </div>
-                                        </div>
-                                    )}
+                                        )}
 
-                                    {selectedEventForModal.workshopEvents?.length > 0 && (
-                                        <div>
-                                            <p className="google-form-label" style={{ fontWeight: 600, color: '#10b981' }}>🛠 Workshops</p>
-                                            <p style={{ fontSize: '0.75rem', color: '#5f6368', marginBottom: '0.5rem' }}>Select any workshops you plan to attend.</p>
-                                            <div className="google-form-checkbox-group">
-                                                {selectedEventForModal.workshopEvents.map(ev => (
-                                                    <label key={ev} className="google-form-check-item">
-                                                        <input 
-                                                            type="checkbox" 
-                                                            checked={applyForm.selectedEvents.includes(ev)} 
-                                                            onChange={() => {
-                                                                const isSelected = applyForm.selectedEvents.includes(ev);
-                                                                const next = isSelected ? applyForm.selectedEvents.filter(x => x !== ev) : [...applyForm.selectedEvents, ev];
-                                                                setApplyForm({ ...applyForm, selectedEvents: next });
-                                                            }} 
-                                                        />
-                                                        <span style={{ fontSize: '0.875rem' }}>{ev}</span>
-                                                    </label>
-                                                ))}
+                                        {selectedEventForModal.nonTechnicalEvents?.length > 0 && (
+                                            <div style={{ marginBottom: '1.5rem' }}>
+                                                <p className="google-form-label" style={{ fontWeight: 600, color: '#ec4899' }}>🎨 Non-Technical Events</p>
+                                                <p style={{ fontSize: '0.75rem', color: '#5f6368', marginBottom: '0.5rem' }}>Select the non-technical activities you wish to join.</p>
+                                                <div className="google-form-checkbox-group">
+                                                    {selectedEventForModal.nonTechnicalEvents.map(ev => (
+                                                        <label key={ev} className="google-form-check-item">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={applyForm.selectedEvents.includes(ev)}
+                                                                onChange={() => {
+                                                                    const isSelected = applyForm.selectedEvents.includes(ev);
+                                                                    const next = isSelected ? applyForm.selectedEvents.filter(x => x !== ev) : [...applyForm.selectedEvents, ev];
+                                                                    setApplyForm({ ...applyForm, selectedEvents: next });
+                                                                }}
+                                                            />
+                                                            <span style={{ fontSize: '0.875rem' }}>{ev}</span>
+                                                        </label>
+                                                    ))}
+                                                </div>
                                             </div>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
+                                        )}
+
+                                        {selectedEventForModal.workshopEvents?.length > 0 && (
+                                            <div>
+                                                <p className="google-form-label" style={{ fontWeight: 600, color: '#10b981' }}>🛠 Workshops</p>
+                                                <p style={{ fontSize: '0.75rem', color: '#5f6368', marginBottom: '0.5rem' }}>Select any workshops you plan to attend.</p>
+                                                <div className="google-form-checkbox-group">
+                                                    {selectedEventForModal.workshopEvents.map(ev => (
+                                                        <label key={ev} className="google-form-check-item">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={applyForm.selectedEvents.includes(ev)}
+                                                                onChange={() => {
+                                                                    const isSelected = applyForm.selectedEvents.includes(ev);
+                                                                    const next = isSelected ? applyForm.selectedEvents.filter(x => x !== ev) : [...applyForm.selectedEvents, ev];
+                                                                    setApplyForm({ ...applyForm, selectedEvents: next });
+                                                                }}
+                                                            />
+                                                            <span style={{ fontSize: '0.875rem' }}>{ev}</span>
+                                                        </label>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
 
                             {/* --- Structure 2: Sports --- */}
                             {selectedEventForModal.category === 'Sports' && (
@@ -788,7 +904,7 @@ export default function StudentDashboard({ notifEvent = null, clearNotifEvent })
                             <div className="google-form-card">
                                 <h3 className="google-form-section-title">Final Step: Logistics & Payment</h3>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                                    
+
                                     {selectedEventForModal.entryFee > 0 && (
                                         <div style={{ background: '#f8f9fa', padding: '1rem', borderRadius: '8px', border: '1px solid #dadce0' }}>
                                             <p style={{ fontWeight: 600, fontSize: '0.9rem', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
@@ -799,7 +915,7 @@ export default function StudentDashboard({ notifEvent = null, clearNotifEvent })
                                             <input type="file" required accept="image/*" className="google-form-input" style={{ border: 'none !important', paddingLeft: 0 }} onChange={(e) => setApplyForm({ ...applyForm, paymentScreenshot: e.target.files[0] })} />
                                         </div>
                                     )}
-                                    
+
                                     {selectedEventForModal.entryFee <= 0 && (
                                         <div>
                                             <label className="google-form-label">Additional Payment Proof (If any)</label>
@@ -952,16 +1068,16 @@ export default function StudentDashboard({ notifEvent = null, clearNotifEvent })
                         <p style={{ color: 'var(--text-secondary)', lineHeight: '1.6', marginBottom: '2rem' }}>
                             Your application for <strong>{lastAppliedEventTitle}</strong> has been submitted successfully. You'll receive a confirmation email shortly.
                         </p>
-                        <button 
+                        <button
                             onClick={() => {
                                 setShowConfirmation(false);
                                 setShowOngoing(true);
                                 setTimeout(() => {
                                     const el = document.getElementById('applied-events-section');
-                                    if(el) el.scrollIntoView({ behavior: 'smooth' });
+                                    if (el) el.scrollIntoView({ behavior: 'smooth' });
                                 }, 100);
-                            }} 
-                            className="btn btn-primary" 
+                            }}
+                            className="btn btn-primary"
                             style={{ width: '100%', justifyContent: 'center', padding: '1rem' }}
                         >
                             View Application Status

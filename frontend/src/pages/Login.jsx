@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
-import { User, Lock, ArrowRight, ShieldCheck, GraduationCap, Globe, Sparkles } from 'lucide-react';
+import { User, Lock, ArrowRight, ShieldCheck, GraduationCap, Globe, Sparkles, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export default function Login() {
     const [identifier, setIdentifier] = useState('');
     const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
@@ -18,7 +19,7 @@ export default function Login() {
         setError('');
         try {
             const trimmedIdentifier = identifier.trim();
-            const res = await axios.post('http://localhost:5000/api/auth/login', { identifier: trimmedIdentifier, password });
+            const res = await axios.post(`${import.meta.env.VITE_API_URL}/api/auth/login`, { identifier: trimmedIdentifier, password });
             login(res.data.token, res.data.user);
             if (res.data.user.role === 'college') navigate('/college-dashboard');
             else navigate('/student-dashboard');
@@ -115,13 +116,21 @@ export default function Login() {
                             <div style={{ position: 'relative' }}>
                                 <Lock size={20} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }} />
                                 <input
-                                    type="password"
+                                    type={showPassword ? "text" : "password"}
                                     required
                                     value={password}
                                     onChange={e => setPassword(e.target.value)}
-                                    style={{ width: '100%', padding: '0.875rem 1rem 0.875rem 3rem', borderRadius: '0.5rem', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-primary)', outline: 'none', transition: 'all 0.2s' }}
+                                    style={{ width: '100%', padding: '0.875rem 3rem 0.875rem 3rem', borderRadius: '0.5rem', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-primary)', outline: 'none', transition: 'all 0.2s' }}
                                     placeholder="••••••••"
                                 />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    style={{ position: 'absolute', right: '1rem', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-tertiary)', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                    title={showPassword ? "Hide password" : "Show password"}
+                                >
+                                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                                </button>
                             </div>
                         </div>
 

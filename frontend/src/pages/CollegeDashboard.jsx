@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
-import { Monitor, Palette, Trophy, Wrench, Calendar, MapPin, Clock, IndianRupee, Search, User, FileText, Phone, Mail, Building2, Eye, X, ChevronDown, ChevronUp, Users, Bus, Pencil } from 'lucide-react';
+import { Monitor, Palette, Trophy, Wrench, Calendar, MapPin, Clock, IndianRupee, Search, User, FileText, Phone, Mail, Building2, Eye, X, ChevronDown, ChevronUp, Users, Bus, Pencil, History } from 'lucide-react';
 
 const CATEGORY_ICONS = {
     Symposium: { icon: Users, color: '#8b5cf6', label: 'Symposium' },
@@ -50,7 +50,7 @@ export default function CollegeDashboard({ searchQuery: searchQueryProp = '' }) 
         try {
             const res = await axios.get(`http://localhost:5000/api/college/search?query=${searchCollegeQuery}`, { headers: { Authorization: `Bearer ${token}` } });
             setCollegeResults(res.data);
-        } catch(err) { console.error(err) }
+        } catch (err) { console.error(err) }
     };
 
     // Debounce college search
@@ -77,7 +77,7 @@ export default function CollegeDashboard({ searchQuery: searchQueryProp = '' }) 
                 const res = await axios.post(`http://localhost:5000/api/college/follow/${collegeId}`, {}, { headers: { Authorization: `Bearer ${token}` } });
                 if (res.data.user) updateUser(res.data.user);
             }
-        } catch(err) { console.error(err); }
+        } catch (err) { console.error(err); }
         finally { setFollowLoading(prev => { const next = new Set(prev); next.delete(collegeId); return next; }); }
     };
 
@@ -86,17 +86,18 @@ export default function CollegeDashboard({ searchQuery: searchQueryProp = '' }) 
 
     // New Event Form State
     const [showEventForm, setShowEventForm] = useState(false);
-    const [newEvent, setNewEvent] = useState({ 
-        title: '', category: 'Symposium', type: '', 
-        startTime: '', endTime: '', startDate: '', endDate: '', address: '', entryFee: 0, 
-        qrCode: null, poster: null, collegeBusRoutes: '', localBusRoutes: '', contactNumber: '', email: '', 
+    const [newEvent, setNewEvent] = useState({
+        title: '', category: 'Symposium', type: '',
+        startTime: '', endTime: '', startDate: '', endDate: '', address: '', entryFee: 0,
+        qrCode: null, poster: null, collegeBusRoutes: '', localBusRoutes: '', contactNumber: '', email: '',
         registrationEndDate: '', mapLink: '',
-        technicalEvents: '', nonTechnicalEvents: '', workshopEvents: '' 
+        technicalEvents: '', nonTechnicalEvents: '', workshopEvents: ''
     });
     const [creating, setCreating] = useState(false);
 
     // Edit Event State
     const [editingEvent, setEditingEvent] = useState(null);
+    const [selectedEventDetailsModal, setSelectedEventDetailsModal] = useState(null);
     const [editForm, setEditForm] = useState({});
     const [updating, setUpdating] = useState(false);
 
@@ -211,12 +212,12 @@ export default function CollegeDashboard({ searchQuery: searchQueryProp = '' }) 
                 }
             });
             setShowEventForm(false);
-            setNewEvent({ 
-                title: '', category: 'Symposium', type: '', 
-                startTime: '', endTime: '', startDate: '', endDate: '', address: '', entryFee: 0, 
-                qrCode: null, poster: null, collegeBusRoutes: '', localBusRoutes: '', contactNumber: '', email: '', 
+            setNewEvent({
+                title: '', category: 'Symposium', type: '',
+                startTime: '', endTime: '', startDate: '', endDate: '', address: '', entryFee: 0,
+                qrCode: null, poster: null, collegeBusRoutes: '', localBusRoutes: '', contactNumber: '', email: '',
                 registrationEndDate: '', mapLink: '',
-                technicalEvents: '', nonTechnicalEvents: '', workshopEvents: '' 
+                technicalEvents: '', nonTechnicalEvents: '', workshopEvents: ''
             });
             fetchDashboardData();
         } catch (err) {
@@ -258,9 +259,14 @@ export default function CollegeDashboard({ searchQuery: searchQueryProp = '' }) 
                         🏫 <strong>{user?.name || 'Your College'}</strong>
                     </p>
                 </div>
-                <button className="btn btn-primary" onClick={() => setShowEventForm(!showEventForm)}>
-                    {showEventForm ? 'Cancel Form' : '+ Post New Event'}
-                </button>
+                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                    <button className="btn btn-outline" onClick={() => navigate('/history')} style={{ background: 'rgba(99, 102, 241, 0.05)', borderColor: 'var(--accent-secondary)' }}>
+                        <History size={18} /> Event History
+                    </button>
+                    <button className="btn btn-primary" onClick={() => setShowEventForm(!showEventForm)}>
+                        {showEventForm ? 'Cancel Form' : '+ Post New Event'}
+                    </button>
+                </div>
             </div>
 
 
@@ -301,11 +307,11 @@ export default function CollegeDashboard({ searchQuery: searchQueryProp = '' }) 
                         ) : (
                             <div className="input-group" style={{ gridColumn: '1 / -1' }}>
                                 <label className="input-label" style={{ color: 'var(--accent-primary)' }}>Specific Events / Categories (Comma separated)</label>
-                                <textarea 
-                                    className="input-field" 
-                                    rows="3" 
-                                    placeholder={newEvent.category === 'Sports' ? "e.g. Cricket, Football, Chess, Athletics (100m)" : "e.g. Singing, Dancing, Drama, Magic Show"} 
-                                    value={newEvent.technicalEvents} 
+                                <textarea
+                                    className="input-field"
+                                    rows="3"
+                                    placeholder={newEvent.category === 'Sports' ? "e.g. Cricket, Football, Chess, Athletics (100m)" : "e.g. Singing, Dancing, Drama, Magic Show"}
+                                    value={newEvent.technicalEvents}
                                     onChange={e => setNewEvent({ ...newEvent, technicalEvents: e.target.value })}
                                 ></textarea>
                                 <p style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', marginTop: '0.25rem' }}>These will be shown as checkboxes for students to select during registration.</p>
@@ -427,9 +433,9 @@ export default function CollegeDashboard({ searchQuery: searchQueryProp = '' }) 
 
             {/* Stats Cards */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem', marginBottom: '3rem' }}>
-                <div className="glass-card animate-fade-in" style={{ padding: '2rem' }}>
+                <div className="glass-card animate-fade-in" style={{ padding: '2rem', background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%)', border: '1px solid rgba(99, 102, 241, 0.2)' }}>
                     <h3 className="outfit-font" style={{ fontSize: '1.25rem', color: 'var(--text-secondary)' }}>Total Active Events</h3>
-                    <p style={{ fontSize: '3rem', fontWeight: 700 }}>{activeEvents.length}</p>
+                    <p style={{ fontSize: '3rem', fontWeight: 700, color: 'var(--accent-primary)' }}>{activeEvents.length}</p>
                 </div>
                 <div
                     className="glass-card animate-fade-in animate-delay-1"
@@ -437,11 +443,12 @@ export default function CollegeDashboard({ searchQuery: searchQueryProp = '' }) 
                     style={{
                         padding: '2rem',
                         cursor: 'pointer',
+                        background: showApplications ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(52, 211, 153, 0.15) 100%)' : 'linear-gradient(135deg, rgba(16, 185, 129, 0.05) 0%, rgba(52, 211, 153, 0.05) 100%)',
                         transition: 'all 0.3s ease',
-                        border: showApplications ? '2px solid var(--info)' : '2px solid transparent',
+                        border: showApplications ? '2px solid var(--success)' : '1px solid rgba(16, 185, 129, 0.2)',
                         transform: showApplications ? 'scale(1.02)' : 'scale(1)',
                     }}
-                    onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.03)'; e.currentTarget.style.boxShadow = '0 8px 32px rgba(99, 102, 241, 0.15)'; }}
+                    onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.03)'; e.currentTarget.style.boxShadow = '0 8px 32px rgba(16, 185, 129, 0.15)'; }}
                     onMouseLeave={e => { e.currentTarget.style.transform = showApplications ? 'scale(1.02)' : 'scale(1)'; e.currentTarget.style.boxShadow = ''; }}
                 >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -470,11 +477,16 @@ export default function CollegeDashboard({ searchQuery: searchQueryProp = '' }) 
                         const IconComp = cat?.icon || Calendar;
                         return (
                             <div key={event._id} className="glass-card" style={{ overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-                                {event.posterUrl ? (
-                                    <div style={{ height: '140px', background: `url(http://localhost:5000/${event.posterUrl}) center/cover no-repeat` }} />
-                                ) : (
-                                    <div style={{ height: '8px', background: cat ? cat.color : 'var(--accent-primary)' }} />
-                                )}
+                                <div
+                                    onClick={() => setSelectedEventDetailsModal(event)}
+                                    style={{ cursor: 'pointer', flexShrink: 0 }}
+                                >
+                                    {event.posterUrl ? (
+                                        <div style={{ height: '140px', background: `url(http://localhost:5000/${event.posterUrl}) center/cover no-repeat`, transition: 'transform 0.3s' }} onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.05)'} onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'} />
+                                    ) : (
+                                        <div style={{ height: '8px', background: cat ? cat.color : 'var(--accent-primary)' }} />
+                                    )}
+                                </div>
                                 <div style={{ padding: '1.5rem', flex: 1 }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem', justifyContent: 'space-between' }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -527,6 +539,51 @@ export default function CollegeDashboard({ searchQuery: searchQueryProp = '' }) 
                 </div>
             </div>
 
+            {/* ===== Event Details Modal (Shows full poster) ===== */}
+            {selectedEventDetailsModal && (
+                <div className="modal-overlay" style={{ zIndex: 1000, padding: '1rem' }}>
+                    <div className="glass-card modal-content" style={{ maxWidth: '800px', width: '100%', maxHeight: '90vh', overflowY: 'auto', position: 'relative', padding: 0 }}>
+                        <button onClick={() => setSelectedEventDetailsModal(null)} style={{ position: 'absolute', top: '1rem', right: '1rem', color: '#5f6368', background: 'white', borderRadius: '50%', padding: '0.2rem', zIndex: 10, cursor: 'pointer', border: 'none', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}>
+                            <X size={24} />
+                        </button>
+                        {selectedEventDetailsModal.posterUrl ? (
+                            <img src={`http://localhost:5000/${selectedEventDetailsModal.posterUrl}`} alt="Event Poster" style={{ width: '100%', maxHeight: '400px', objectFit: 'contain', background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-color)' }} />
+                        ) : (
+                            <div style={{ padding: '3rem', background: CATEGORY_ICONS[selectedEventDetailsModal.category]?.bg || 'var(--accent-primary)', color: 'white', textAlign: 'center' }}>
+                                <h1 style={{ fontSize: '2rem', margin: 0 }}>{selectedEventDetailsModal.title}</h1>
+                            </div>
+                        )}
+                        <div style={{ padding: '2rem' }}>
+                            <h2 className="outfit-font" style={{ fontSize: '2rem', marginBottom: '0.5rem', color: 'var(--text-primary)' }}>{selectedEventDetailsModal.title}</h2>
+                            <p style={{ color: 'var(--accent-primary)', fontSize: '1.1rem', fontWeight: 600, marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                                <Building2 size={18} /> {selectedEventDetailsModal.collegeName || selectedEventDetailsModal.organizer?.name || 'Unknown College'}
+                            </p>
+
+                            <p style={{ color: 'var(--text-secondary)', fontSize: '1rem', lineHeight: '1.6', marginBottom: '2rem', whiteSpace: 'pre-line' }}>{selectedEventDetailsModal.description}</p>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem', marginBottom: '2rem', background: 'var(--bg-tertiary)', padding: '1.5rem', borderRadius: '1rem' }}>
+                                <div>
+                                    <strong style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>DATE & TIME</strong>
+                                    <div style={{ color: 'var(--text-primary)', fontWeight: 500, marginTop: '0.25rem' }}>{new Date(selectedEventDetailsModal.startDate).toLocaleDateString()} at {selectedEventDetailsModal.startTime}</div>
+                                </div>
+                                <div>
+                                    <strong style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>ENTRY FEE</strong>
+                                    <div style={{ color: 'var(--text-primary)', fontWeight: 500, marginTop: '0.25rem' }}>₹{selectedEventDetailsModal.entryFee || 0}</div>
+                                </div>
+                                <div>
+                                    <strong style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>LOCATION</strong>
+                                    <div style={{ color: 'var(--text-primary)', fontWeight: 500, marginTop: '0.25rem' }}>{selectedEventDetailsModal.address}</div>
+                                </div>
+                                <div>
+                                    <strong style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>LAST DATE TO APPLY</strong>
+                                    <div style={{ color: 'var(--error)', fontWeight: 600, marginTop: '0.25rem' }}>{new Date(selectedEventDetailsModal.endDate).toLocaleDateString()}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* ===== Edit Event Modal ===== */}
             {editingEvent && (
                 <div className="modal-overlay">
@@ -577,11 +634,11 @@ export default function CollegeDashboard({ searchQuery: searchQueryProp = '' }) 
                                 ) : (
                                     <div className="input-group" style={{ gridColumn: '1 / -1' }}>
                                         <label className="input-label">Specific Events / Categories (Comma separated)</label>
-                                        <textarea 
-                                            className="input-field" 
-                                            rows="3" 
-                                            placeholder={editForm.category === 'Sports' ? "e.g. Cricket, Football, Chess" : "e.g. Singing, Dancing"} 
-                                            value={editForm.technicalEvents} 
+                                        <textarea
+                                            className="input-field"
+                                            rows="3"
+                                            placeholder={editForm.category === 'Sports' ? "e.g. Cricket, Football, Chess" : "e.g. Singing, Dancing"}
+                                            value={editForm.technicalEvents}
                                             onChange={e => setEditForm({ ...editForm, technicalEvents: e.target.value })}
                                         ></textarea>
                                     </div>
@@ -702,13 +759,13 @@ export default function CollegeDashboard({ searchQuery: searchQueryProp = '' }) 
                                         .map(app => (
                                             <tr key={app._id} style={{ borderBottom: '1px solid var(--border-color)' }}>
                                                 <td style={{ padding: '1rem' }}>
-                                                    <div 
+                                                    <div
                                                         onClick={() => navigate(`/student/${app.student?._id || app.student}`)}
                                                         style={{ fontWeight: 600, color: 'var(--accent-primary)', cursor: 'pointer', textDecoration: 'underline' }}
                                                     >
                                                         {app.name || app.student?.name}
                                                     </div>
-                                                     <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>🏫 {app.collegeName || app.student?.college}</div>
+                                                    <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>🏫 {app.collegeName || app.student?.college}</div>
                                                     {app.degree && <div style={{ fontSize: '0.8rem', color: 'var(--text-tertiary)' }}>Degree: {app.degree} {app.year ? `(${app.year})` : ''}</div>}
                                                     <div style={{ fontSize: '0.75rem', marginTop: '0.25rem', padding: '0.2rem 0.5rem', background: 'var(--bg-secondary)', borderRadius: '4px', display: 'inline-block' }}>Total Apps: {app.studentApplyCount || 1}</div>
                                                 </td>
@@ -753,7 +810,7 @@ export default function CollegeDashboard({ searchQuery: searchQueryProp = '' }) 
                             <div>
                                 <h2 className="outfit-font" style={{ fontSize: '1.75rem', margin: 0 }}>{selectedApplication.name || selectedApplication.student?.name}</h2>
                                 <p style={{ color: 'var(--accent-primary)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.35rem', marginTop: '0.25rem' }}>
-                                     <Building2 size={16} /> {selectedApplication.collegeName || selectedApplication.student?.college}
+                                    <Building2 size={16} /> {selectedApplication.collegeName || selectedApplication.student?.college}
                                 </p>
                             </div>
                         </div>
